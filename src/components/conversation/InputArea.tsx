@@ -10,7 +10,7 @@ import IconButton from "../IconButton";
 import { invoke } from "@tauri-apps/api/core";
 import { getCaretCoordinates } from "../../utils/caretCoordinates";
 
-const InputArea: React.FC<{
+interface InputAreaProps {
     inputText: string;
     setInputText: React.Dispatch<React.SetStateAction<string>>;
     fileInfoList: FileInfo[] | null;
@@ -19,7 +19,10 @@ const InputArea: React.FC<{
     handleDeleteFile: (fileId: number) => void;
     handleSend: () => void;
     aiIsResponsing: boolean;
-}> = React.memo(
+    placement?: "top" | "bottom";
+}
+
+const InputArea: React.FC<InputAreaProps> = React.memo(
     ({
         inputText,
         setInputText,
@@ -29,6 +32,7 @@ const InputArea: React.FC<{
         handleDeleteFile,
         handleSend,
         aiIsResponsing,
+        placement = "bottom",
     }) => {
         const textareaRef = useRef<HTMLTextAreaElement>(null);
         const [initialHeight, setInitialHeight] = useState<number | null>(null);
@@ -38,6 +42,7 @@ const InputArea: React.FC<{
         const [cursorPosition, setCursorPosition] = useState<{
             bottom: number;
             left: number;
+            top?: number;
         }>({ bottom: 0, left: 0 });
         const [selectedBangIndex, setSelectedBangIndex] = useState<number>(0);
 
@@ -62,7 +67,7 @@ const InputArea: React.FC<{
                     const value = textareaRef.current.value;
                     const bangIndex = Math.max(
                         value.lastIndexOf("!", cursorPosition - 1),
-                        value.lastIndexOf("！", cursorPosition - 1)
+                        value.lastIndexOf("！", cursorPosition - 1),
                     );
 
                     if (bangIndex !== -1 && bangIndex < cursorPosition) {
@@ -89,9 +94,27 @@ const InputArea: React.FC<{
                                 .querySelector(".input-area")!
                                 .getBoundingClientRect();
                             const left =
-                                rect.left - inputAreaRect.left + cursorCoords.cursorLeft;
-                            const bottom = inputAreaRect.top - rect.top - cursorCoords.cursorTop + 10 + (textareaRef.current.scrollHeight - textareaRef.current.clientHeight);
-                            setCursorPosition({ bottom, left });
+                                rect.left -
+                                inputAreaRect.left +
+                                cursorCoords.cursorLeft;
+
+                            if (placement === "top") {
+                                const top =
+                                    rect.top -
+                                    inputAreaRect.top +
+                                    cursorCoords.cursorTop -
+                                    10;
+                                setCursorPosition({ bottom: 0, left, top });
+                            } else {
+                                const bottom =
+                                    inputAreaRect.top -
+                                    rect.top -
+                                    cursorCoords.cursorTop +
+                                    10 +
+                                    (textareaRef.current.scrollHeight -
+                                        textareaRef.current.clientHeight);
+                                setCursorPosition({ bottom, left });
+                            }
                         } else {
                             setBangListVisible(false);
                         }
@@ -108,7 +131,7 @@ const InputArea: React.FC<{
                     handleSelectionChange,
                 );
             };
-        }, [originalBangList]);
+        }, [originalBangList, placement]);
 
         const adjustTextareaHeight = () => {
             const textarea = textareaRef.current;
@@ -134,7 +157,7 @@ const InputArea: React.FC<{
             // Check for bang input
             const bangIndex = Math.max(
                 newValue.lastIndexOf("!", cursorPosition - 1),
-                newValue.lastIndexOf("！", cursorPosition - 1)
+                newValue.lastIndexOf("！", cursorPosition - 1),
             );
 
             if (bangIndex !== -1 && bangIndex < cursorPosition) {
@@ -152,7 +175,6 @@ const InputArea: React.FC<{
 
                     // Update cursor position
                     const textarea = e.target;
-                    const cursorPosition = textarea.selectionStart;
                     const cursorCoords = getCaretCoordinates(
                         textarea,
                         cursorPosition,
@@ -162,11 +184,27 @@ const InputArea: React.FC<{
                         .querySelector(".input-area")!
                         .getBoundingClientRect();
 
-                    console.log("cursorCoords", cursorCoords, "rect", rect, "inputAreaRect", inputAreaRect);
                     const left =
-                        rect.left - inputAreaRect.left + cursorCoords.cursorLeft;
-                    const bottom = inputAreaRect.top - rect.top - cursorCoords.cursorTop + 10 + (textarea.scrollHeight - textarea.clientHeight);
-                    setCursorPosition({ bottom, left });
+                        rect.left -
+                        inputAreaRect.left +
+                        cursorCoords.cursorLeft;
+
+                    if (placement === "top") {
+                        const top =
+                            rect.top -
+                            inputAreaRect.top +
+                            cursorCoords.cursorTop -
+                            10;
+                        setCursorPosition({ bottom: 0, left, top });
+                    } else {
+                        const bottom =
+                            inputAreaRect.top -
+                            rect.top -
+                            cursorCoords.cursorTop +
+                            10 +
+                            (textarea.scrollHeight - textarea.clientHeight);
+                        setCursorPosition({ bottom, left });
+                    }
                 } else {
                     setBangListVisible(false);
                 }
@@ -190,7 +228,7 @@ const InputArea: React.FC<{
                     const cursorPosition = textarea.selectionStart;
                     const bangIndex = Math.max(
                         textarea.value.lastIndexOf("!", cursorPosition - 1),
-                        textarea.value.lastIndexOf("！", cursorPosition - 1)
+                        textarea.value.lastIndexOf("！", cursorPosition - 1),
                     );
 
                     if (bangIndex !== -1) {
@@ -202,10 +240,10 @@ const InputArea: React.FC<{
                             textarea.value.substring(cursorPosition);
                         setInputText(
                             beforeBang +
-                            "!" +
-                            selectedBang[0] +
-                            " " +
-                            afterBang,
+                                "!" +
+                                selectedBang[0] +
+                                " " +
+                                afterBang,
                         );
 
                         // 设置光标位置
@@ -232,7 +270,7 @@ const InputArea: React.FC<{
                 const cursorPosition = textarea.selectionStart;
                 const bangIndex = Math.max(
                     textarea.value.lastIndexOf("!", cursorPosition - 1),
-                    textarea.value.lastIndexOf("！", cursorPosition - 1)
+                    textarea.value.lastIndexOf("！", cursorPosition - 1),
                 );
 
                 if (bangIndex !== -1) {
@@ -292,77 +330,79 @@ const InputArea: React.FC<{
         }, [selectedBangIndex]);
 
         return (
-            <div className="input-area">
-                <div className="input-area-img-container">
-                    {fileInfoList?.map((fileInfo) => (
-                        <div
-                            key={fileInfo.name + fileInfo.id}
-                            className={
-                                fileInfo.type === AttachmentType.Image
-                                    ? "input-area-img-wrapper"
-                                    : "input-area-text-wrapper"
-                            }
-                        >
-                            {(() => {
-                                switch (fileInfo.type) {
-                                    case AttachmentType.Image:
-                                        return (
-                                            <img
-                                                src={fileInfo.thumbnail}
-                                                alt="缩略图"
-                                                className="input-area-img"
-                                            />
-                                        );
-                                    case AttachmentType.Text:
-                                        return [
-                                            <Text fill="black" />,
-                                            <span title={fileInfo.name}>
-                                                {fileInfo.name}
-                                            </span>,
-                                        ];
-                                    case AttachmentType.PDF:
-                                        return (
-                                            <span title={fileInfo.name}>
-                                                {fileInfo.name} (PDF)
-                                            </span>
-                                        );
-                                    case AttachmentType.Word:
-                                        return (
-                                            <span title={fileInfo.name}>
-                                                {fileInfo.name} (Word)
-                                            </span>
-                                        );
-                                    case AttachmentType.PowerPoint:
-                                        return (
-                                            <span title={fileInfo.name}>
-                                                {fileInfo.name} (PowerPoint)
-                                            </span>
-                                        );
-                                    case AttachmentType.Excel:
-                                        return (
-                                            <span title={fileInfo.name}>
-                                                {fileInfo.name} (Excel)
-                                            </span>
-                                        );
-                                    default:
-                                        return (
-                                            <span title={fileInfo.name}>
-                                                {fileInfo.name}
-                                            </span>
-                                        );
+            <div className={`input-area ${placement}`}>
+                {placement === "bottom" && (
+                    <div className="input-area-img-container">
+                        {fileInfoList?.map((fileInfo) => (
+                            <div
+                                key={fileInfo.name + fileInfo.id}
+                                className={
+                                    fileInfo.type === AttachmentType.Image
+                                        ? "input-area-img-wrapper"
+                                        : "input-area-text-wrapper"
                                 }
-                            })()}
-                            <IconButton
-                                border
-                                icon={<Delete fill="black" />}
-                                className="input-area-img-delete-button"
-                                onClick={() => {
-                                    handleDeleteFile(fileInfo.id);
-                                }}
-                            />
-                        </div>
-                    ))}
-                </div>
+                            >
+                                {(() => {
+                                    switch (fileInfo.type) {
+                                        case AttachmentType.Image:
+                                            return (
+                                                <img
+                                                    src={fileInfo.thumbnail}
+                                                    alt="缩略图"
+                                                    className="input-area-img"
+                                                />
+                                            );
+                                        case AttachmentType.Text:
+                                            return [
+                                                <Text fill="black" />,
+                                                <span title={fileInfo.name}>
+                                                    {fileInfo.name}
+                                                </span>,
+                                            ];
+                                        case AttachmentType.PDF:
+                                            return (
+                                                <span title={fileInfo.name}>
+                                                    {fileInfo.name} (PDF)
+                                                </span>
+                                            );
+                                        case AttachmentType.Word:
+                                            return (
+                                                <span title={fileInfo.name}>
+                                                    {fileInfo.name} (Word)
+                                                </span>
+                                            );
+                                        case AttachmentType.PowerPoint:
+                                            return (
+                                                <span title={fileInfo.name}>
+                                                    {fileInfo.name} (PowerPoint)
+                                                </span>
+                                            );
+                                        case AttachmentType.Excel:
+                                            return (
+                                                <span title={fileInfo.name}>
+                                                    {fileInfo.name} (Excel)
+                                                </span>
+                                            );
+                                        default:
+                                            return (
+                                                <span title={fileInfo.name}>
+                                                    {fileInfo.name}
+                                                </span>
+                                            );
+                                    }
+                                })()}
+                                <IconButton
+                                    border
+                                    icon={<Delete fill="black" />}
+                                    className="input-area-img-delete-button"
+                                    onClick={() => {
+                                        handleDeleteFile(fileInfo.id);
+                                    }}
+                                />
+                            </div>
+                        ))}
+                    </div>
+                )}
                 <div className="input-area-textarea-container border-2 border-primary">
                     <textarea
                         ref={textareaRef}
@@ -373,31 +413,71 @@ const InputArea: React.FC<{
                         onKeyDown={handleKeyDownWithBang}
                         onPaste={handlePaste}
                     />
+
+                    {placement === "top" && (
+                        <CircleButton
+                            onClick={handleSend}
+                            icon={
+                                aiIsResponsing ? (
+                                    <Stop width={20} height={20} fill="white" />
+                                ) : (
+                                    <UpArrow
+                                        width={20}
+                                        height={20}
+                                        fill="white"
+                                    />
+                                )
+                            }
+                            primary
+                            className="input-area-send-button-top"
+                        />
+                    )}
                 </div>
 
-                <CircleButton
-                    onClick={handleChooseFile}
-                    icon={<Add fill="black" />}
-                    className="input-area-add-button"
-                />
-                <CircleButton
-                    size="large"
-                    onClick={handleSend}
-                    icon={
-                        aiIsResponsing ? (
-                            <Stop width={20} height={20} fill="white" />
-                        ) : (
-                            <UpArrow width={20} height={20} fill="white" />
-                        )
-                    }
-                    primary
-                    className="input-area-send-button"
-                />
+                {placement === "bottom" && (
+                    <>
+                        <CircleButton
+                            onClick={handleChooseFile}
+                            icon={<Add fill="black" />}
+                            className="input-area-add-button"
+                        />
+                        <CircleButton
+                            size="large"
+                            onClick={handleSend}
+                            icon={
+                                aiIsResponsing ? (
+                                    <Stop width={20} height={20} fill="white" />
+                                ) : (
+                                    <UpArrow
+                                        width={20}
+                                        height={20}
+                                        fill="white"
+                                    />
+                                )
+                            }
+                            primary
+                            className="input-area-send-button"
+                        />
+                    </>
+                )}
+
+                {placement === "top" && (
+                    <button
+                        className="ask-window-submit-button bg-primary"
+                        type="button"
+                        onClick={handleChooseFile}
+                    >
+                        <Add fill="white" />
+                    </button>
+                )}
+
                 {bangListVisible && (
                     <div
                         className="completion-bang-list"
                         style={{
-                            bottom: cursorPosition.bottom,
+                            ...(placement === "top"
+                                ? { top: cursorPosition.top }
+                                : { bottom: cursorPosition.bottom }),
                             left: cursorPosition.left,
                         }}
                     >
@@ -408,21 +488,45 @@ const InputArea: React.FC<{
                                 onClick={() => {
                                     const textarea = textareaRef.current;
                                     if (textarea) {
-                                        const cursorPosition = textarea.selectionStart;
+                                        const cursorPosition =
+                                            textarea.selectionStart;
                                         const bangIndex = Math.max(
-                                            textarea.value.lastIndexOf("!", cursorPosition - 1),
-                                            textarea.value.lastIndexOf("！", cursorPosition - 1)
+                                            textarea.value.lastIndexOf(
+                                                "!",
+                                                cursorPosition - 1,
+                                            ),
+                                            textarea.value.lastIndexOf(
+                                                "！",
+                                                cursorPosition - 1,
+                                            ),
                                         );
 
                                         if (bangIndex !== -1) {
-                                            const beforeBang = textarea.value.substring(0, bangIndex);
-                                            const afterBang = textarea.value.substring(cursorPosition);
-                                            setInputText(beforeBang + "!" + bang + " " + afterBang);
+                                            const beforeBang =
+                                                textarea.value.substring(
+                                                    0,
+                                                    bangIndex,
+                                                );
+                                            const afterBang =
+                                                textarea.value.substring(
+                                                    cursorPosition,
+                                                );
+                                            setInputText(
+                                                beforeBang +
+                                                    "!" +
+                                                    bang +
+                                                    " " +
+                                                    afterBang,
+                                            );
 
                                             // 设置光标位置
                                             setTimeout(() => {
-                                                const newPosition = bangIndex + bang.length + 2;
-                                                textarea.setSelectionRange(newPosition, newPosition);
+                                                const newPosition =
+                                                    bangIndex + bang.length + 2;
+                                                textarea.setSelectionRange(
+                                                    newPosition,
+                                                    newPosition,
+                                                );
                                             }, 0);
                                         }
                                         setBangListVisible(false);

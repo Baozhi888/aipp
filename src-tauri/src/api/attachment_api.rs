@@ -21,6 +21,31 @@ pub struct AttachmentResult {
 #[tauri::command]
 pub async fn add_attachment(
     app_handle: tauri::AppHandle,
+    file_url: Option<String>,
+    file_content: Option<String>,
+    file_name: Option<String>,
+    attachment_type: Option<i64>,
+) -> Result<AttachmentResult, AppError> {
+    println!("add_attachment file_url: {:?} file_name: {:?}", file_url, file_name);
+    // 如果有 URL，使用 add_attachment_by_url
+    if let Some(url) = file_url {
+        return add_attachment_by_url(app_handle, url).await;
+    }
+
+    // 如果有 content 和其他必要参数，使用 add_attachment_content
+    if let (Some(content), Some(name), Some(att_type)) = (file_content, file_name, attachment_type) {
+        return add_attachment_content(app_handle, content, name, att_type).await;
+    }
+
+    // 如果都没有提供有效参数，返回错误
+    Err(AppError::Anyhow(
+        "无效的参数：需要提供文件URL或者（文件内容、文件名、附件类型）"
+            .to_string(),
+    ))
+}
+
+pub async fn add_attachment_by_url(
+    app_handle: tauri::AppHandle,
     file_url: String,
 ) -> Result<AttachmentResult, AppError> {
     // 1. 解析文件路径
@@ -28,7 +53,7 @@ pub async fn add_attachment(
 
     // 2. 检查文件是否存在
     if !file_path.exists() {
-        return Err(AppError::Anyhow(anyhow!("File not found").to_string()));
+        return Err(AppError::Anyhow(anyhow!("找不到对应的文件").to_string()));
     }
 
     // 3. 解析文件类型
@@ -143,7 +168,6 @@ pub async fn add_attachment(
     }
 }
 
-#[tauri::command]
 pub async fn add_attachment_content(
     app_handle: tauri::AppHandle,
     file_content: String,

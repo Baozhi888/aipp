@@ -1,22 +1,8 @@
 import { invoke } from "@tauri-apps/api/core";
-import { open } from "@tauri-apps/plugin-dialog";
-import { readFile } from "@tauri-apps/plugin-fs";
-import React, {
-    useCallback,
-    useEffect,
-    useMemo,
-    useRef,
-    useState,
-} from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { toast } from "sonner";
 
-import {
-    AddAttachmentResponse,
-    AttachmentType,
-    Conversation,
-    FileInfo,
-    Message,
-} from "../data/Conversation";
+import { Conversation, FileInfo, Message } from "../data/Conversation";
 import "katex/dist/katex.min.css";
 import { listen } from "@tauri-apps/api/event";
 import { throttle } from "lodash";
@@ -29,7 +15,6 @@ import InputArea from "./conversation/InputArea";
 import FormDialog from "./FormDialog";
 import useConversationManager from "../hooks/useConversationManager";
 import useFileManagement from "@/hooks/useFileManagement";
-import { far } from "react-syntax-highlighter/dist/cjs/styles/hljs";
 
 interface AssistantListItem {
     id: number;

@@ -1,4 +1,5 @@
 import React, { useRef, useEffect, useState } from "react";
+import "../../styles/InputArea.css";
 import CircleButton from "../CircleButton";
 import Add from "../../assets/add.svg?react";
 import Stop from "../../assets/stop.svg?react";
@@ -42,8 +43,8 @@ const InputArea: React.FC<InputAreaProps> = React.memo(
         const [cursorPosition, setCursorPosition] = useState<{
             bottom: number;
             left: number;
-            top?: number;
-        }>({ bottom: 0, left: 0 });
+            top: number;
+        }>({ bottom: 0, left: 0, top: 0 });
         const [selectedBangIndex, setSelectedBangIndex] = useState<number>(0);
 
         useEffect(() => {
@@ -90,6 +91,15 @@ const InputArea: React.FC<InputAreaProps> = React.memo(
                             );
                             const rect =
                                 textareaRef.current.getBoundingClientRect();
+                            const style = window.getComputedStyle(
+                                textareaRef.current,
+                            );
+                            const paddingTop = parseFloat(style.paddingTop);
+                            const paddingBottom = parseFloat(
+                                style.paddingBottom,
+                            );
+                            const textareaHeight = parseFloat(style.height);
+
                             const inputAreaRect = document
                                 .querySelector(".input-area")!
                                 .getBoundingClientRect();
@@ -100,10 +110,14 @@ const InputArea: React.FC<InputAreaProps> = React.memo(
 
                             if (placement === "top") {
                                 const top =
-                                    rect.top -
-                                    inputAreaRect.top +
-                                    cursorCoords.cursorTop -
-                                    10;
+                                    rect.top +
+                                    rect.height +
+                                    Math.min(
+                                        textareaHeight,
+                                        cursorCoords.cursorTop,
+                                    ) -
+                                    paddingTop -
+                                    paddingBottom;
                                 setCursorPosition({ bottom: 0, left, top });
                             } else {
                                 const bottom =
@@ -113,7 +127,7 @@ const InputArea: React.FC<InputAreaProps> = React.memo(
                                     10 +
                                     (textareaRef.current.scrollHeight -
                                         textareaRef.current.clientHeight);
-                                setCursorPosition({ bottom, left });
+                                setCursorPosition({ bottom, left, top: 0 });
                             }
                         } else {
                             setBangListVisible(false);
@@ -175,11 +189,16 @@ const InputArea: React.FC<InputAreaProps> = React.memo(
 
                     // Update cursor position
                     const textarea = e.target;
+                    const cursorPosition = textarea.selectionStart;
                     const cursorCoords = getCaretCoordinates(
                         textarea,
                         cursorPosition,
                     );
                     const rect = textarea.getBoundingClientRect();
+                    const style = window.getComputedStyle(textarea);
+                    const paddingTop = parseFloat(style.paddingTop);
+                    const paddingBottom = parseFloat(style.paddingBottom);
+                    const textareaHeight = parseFloat(style.height);
                     const inputAreaRect = document
                         .querySelector(".input-area")!
                         .getBoundingClientRect();
@@ -191,10 +210,12 @@ const InputArea: React.FC<InputAreaProps> = React.memo(
 
                     if (placement === "top") {
                         const top =
-                            rect.top -
-                            inputAreaRect.top +
-                            cursorCoords.cursorTop -
-                            10;
+                            rect.top +
+                            rect.height +
+                            Math.min(textareaHeight, cursorCoords.cursorTop) -
+                            paddingTop -
+                            paddingBottom;
+
                         setCursorPosition({ bottom: 0, left, top });
                     } else {
                         const bottom =
@@ -203,7 +224,7 @@ const InputArea: React.FC<InputAreaProps> = React.memo(
                             cursorCoords.cursorTop +
                             10 +
                             (textarea.scrollHeight - textarea.clientHeight);
-                        setCursorPosition({ bottom, left });
+                        setCursorPosition({ bottom, left, top: 0 });
                     }
                 } else {
                     setBangListVisible(false);
@@ -224,6 +245,7 @@ const InputArea: React.FC<InputAreaProps> = React.memo(
                     // Select bang
                     e.preventDefault();
                     const selectedBang = bangList[selectedBangIndex];
+                    let complete = selectedBang[1];
                     const textarea = e.currentTarget as HTMLTextAreaElement;
                     const cursorPosition = textarea.selectionStart;
                     const bangIndex = Math.max(
@@ -232,6 +254,15 @@ const InputArea: React.FC<InputAreaProps> = React.memo(
                     );
 
                     if (bangIndex !== -1) {
+                        // 找到complete中的|的位置
+                        const cursorIndex = complete.indexOf("|");
+                        // 如果有|，则将光标移动到|的位置，并且移除|
+                        if (cursorIndex !== -1) {
+                            complete =
+                                complete.substring(0, cursorIndex) +
+                                complete.substring(cursorIndex + 1);
+                        }
+
                         const beforeBang = textarea.value.substring(
                             0,
                             bangIndex,
@@ -239,17 +270,16 @@ const InputArea: React.FC<InputAreaProps> = React.memo(
                         const afterBang =
                             textarea.value.substring(cursorPosition);
                         setInputText(
-                            beforeBang +
-                                "!" +
-                                selectedBang[0] +
-                                " " +
-                                afterBang,
+                            beforeBang + "!" + complete + " " + afterBang,
                         );
 
                         // 设置光标位置
                         setTimeout(() => {
                             const newPosition =
-                                bangIndex + selectedBang[0].length + 2;
+                                bangIndex +
+                                (cursorIndex === -1
+                                    ? selectedBang[0].length + 2
+                                    : cursorIndex + 1);
                             textarea.setSelectionRange(
                                 newPosition,
                                 newPosition,
@@ -266,6 +296,7 @@ const InputArea: React.FC<InputAreaProps> = React.memo(
                 // Select bang
                 e.preventDefault();
                 const selectedBang = bangList[selectedBangIndex];
+                let complete = selectedBang[1];
                 const textarea = e.currentTarget as HTMLTextAreaElement;
                 const cursorPosition = textarea.selectionStart;
                 const bangIndex = Math.max(
@@ -274,16 +305,26 @@ const InputArea: React.FC<InputAreaProps> = React.memo(
                 );
 
                 if (bangIndex !== -1) {
+                    // 找到complete中的|的位置
+                    const cursorIndex = complete.indexOf("|");
+                    // 如果有|，则将光标移动到|的位置，并且移除|
+                    if (cursorIndex !== -1) {
+                        complete =
+                            complete.substring(0, cursorIndex) +
+                            complete.substring(cursorIndex + 1);
+                    }
+
                     const beforeBang = textarea.value.substring(0, bangIndex);
                     const afterBang = textarea.value.substring(cursorPosition);
-                    setInputText(
-                        beforeBang + "!" + selectedBang[0] + " " + afterBang,
-                    );
+                    setInputText(beforeBang + "!" + complete + " " + afterBang);
 
                     // 设置光标位置
                     setTimeout(() => {
                         const newPosition =
-                            bangIndex + selectedBang[0].length + 2;
+                            bangIndex +
+                            (cursorIndex === -1
+                                ? selectedBang[0].length + 2
+                                : cursorIndex + 1);
                         textarea.setSelectionRange(newPosition, newPosition);
                     }, 0);
                 }
@@ -403,7 +444,7 @@ const InputArea: React.FC<InputAreaProps> = React.memo(
                         ))}
                     </div>
                 )}
-                <div className="input-area-textarea-container border-2 border-primary">
+                <div className="input-area-textarea-container">
                     <textarea
                         ref={textareaRef}
                         className="input-area-textarea"
@@ -413,63 +454,26 @@ const InputArea: React.FC<InputAreaProps> = React.memo(
                         onKeyDown={handleKeyDownWithBang}
                         onPaste={handlePaste}
                     />
-
-                    {placement === "top" && (
-                        <CircleButton
-                            onClick={handleSend}
-                            icon={
-                                aiIsResponsing ? (
-                                    <Stop width={20} height={20} fill="white" />
-                                ) : (
-                                    <UpArrow
-                                        width={20}
-                                        height={20}
-                                        fill="white"
-                                    />
-                                )
-                            }
-                            primary
-                            className="input-area-send-button-top"
-                        />
-                    )}
                 </div>
 
-                {placement === "bottom" && (
-                    <>
-                        <CircleButton
-                            onClick={handleChooseFile}
-                            icon={<Add fill="black" />}
-                            className="input-area-add-button"
-                        />
-                        <CircleButton
-                            size="large"
-                            onClick={handleSend}
-                            icon={
-                                aiIsResponsing ? (
-                                    <Stop width={20} height={20} fill="white" />
-                                ) : (
-                                    <UpArrow
-                                        width={20}
-                                        height={20}
-                                        fill="white"
-                                    />
-                                )
-                            }
-                            primary
-                            className="input-area-send-button"
-                        />
-                    </>
-                )}
-
-                {placement === "top" && (
-                    <button
-                        className="ask-window-submit-button bg-primary"
-                        type="button"
-                        onClick={handleChooseFile}
-                    >
-                        <Add fill="white" />
-                    </button>
-                )}
+                <CircleButton
+                    onClick={handleChooseFile}
+                    icon={<Add fill="black" />}
+                    className={`input-area-add-button ${placement}`}
+                />
+                <CircleButton
+                    size={placement === "bottom" ? "large" : "medium"}
+                    onClick={handleSend}
+                    icon={
+                        aiIsResponsing ? (
+                            <Stop width={20} height={20} fill="white" />
+                        ) : (
+                            <UpArrow width={20} height={20} fill="white" />
+                        )
+                    }
+                    primary
+                    className={`input-area-send-button ${placement}`}
+                />
 
                 {bangListVisible && (
                     <div
@@ -481,7 +485,7 @@ const InputArea: React.FC<InputAreaProps> = React.memo(
                             left: cursorPosition.left,
                         }}
                     >
-                        {bangList.map(([bang, desc], index) => (
+                        {bangList.map(([bang, complete, desc], index) => (
                             <div
                                 className={`completion-bang-container ${index === selectedBangIndex ? "selected" : ""}`}
                                 key={bang}
@@ -502,39 +506,54 @@ const InputArea: React.FC<InputAreaProps> = React.memo(
                                         );
 
                                         if (bangIndex !== -1) {
-                                            const beforeBang =
+                                            // 找到complete中的|的位置
+                                            const cursorIndex =
+                                                complete.indexOf("|");
+                                            // 如果有|，则将光标移动到|的位置，并且移除|
+                                            if (cursorIndex !== -1) {
+                                                complete =
+                                                    complete.substring(
+                                                        0,
+                                                        cursorIndex,
+                                                    ) +
+                                                    complete.substring(
+                                                        cursorIndex + 1,
+                                                    );
+                                            }
+
+                                            const newValue =
                                                 textarea.value.substring(
                                                     0,
-                                                    bangIndex,
-                                                );
-                                            const afterBang =
+                                                    bangIndex + 1,
+                                                ) +
+                                                complete +
+                                                " " +
                                                 textarea.value.substring(
                                                     cursorPosition,
                                                 );
-                                            setInputText(
-                                                beforeBang +
-                                                    "!" +
-                                                    bang +
-                                                    " " +
-                                                    afterBang,
-                                            );
-
-                                            // 设置光标位置
+                                            setInputText(newValue);
+                                            setBangListVisible(false);
+                                            // 再次聚焦到textarea输入框并设置光标位置
                                             setTimeout(() => {
-                                                const newPosition =
-                                                    bangIndex + bang.length + 2;
+                                                textarea.focus();
                                                 textarea.setSelectionRange(
-                                                    newPosition,
-                                                    newPosition,
+                                                    bangIndex +
+                                                        (cursorIndex === -1
+                                                            ? bang.length + 2
+                                                            : cursorIndex + 1),
+                                                    bangIndex +
+                                                        (cursorIndex === -1
+                                                            ? bang.length + 2
+                                                            : cursorIndex + 1),
                                                 );
-                                            }, 0);
+                                            });
                                         }
-                                        setBangListVisible(false);
-                                        textarea.focus();
                                     }
                                 }}
                             >
-                                <span className="bang-tag">{bang}</span>
+                                <span className="completion-bang-tag">
+                                    {bang}
+                                </span>
                                 <span>{desc}</span>
                             </div>
                         ))}

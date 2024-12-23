@@ -1,4 +1,4 @@
-import React, { useRef, useEffect, useState } from "react";
+import React, { useRef, useEffect, useState, useCallback } from "react";
 import "../../styles/InputArea.css";
 import CircleButton from "../CircleButton";
 import Add from "../../assets/add.svg?react";
@@ -10,6 +10,7 @@ import { AttachmentType, FileInfo } from "../../data/Conversation";
 import IconButton from "../IconButton";
 import { invoke } from "@tauri-apps/api/core";
 import { getCaretCoordinates } from "../../utils/caretCoordinates";
+import BangCompletionList from "./BangCompletionList";
 
 interface InputAreaProps {
     inputText: string;
@@ -147,7 +148,7 @@ const InputArea: React.FC<InputAreaProps> = React.memo(
             };
         }, [originalBangList, placement]);
 
-        const adjustTextareaHeight = () => {
+        const adjustTextareaHeight = useCallback(() => {
             const textarea = textareaRef.current;
             if (textarea && initialHeight) {
                 textarea.style.height = `${initialHeight}px`;
@@ -159,7 +160,7 @@ const InputArea: React.FC<InputAreaProps> = React.memo(
                 textarea.style.height = `${newHeight}px`;
                 textarea.parentElement!.style.height = `${newHeight}px`;
             }
-        };
+        }, [initialHeight]);
 
         const handleTextareaChange = (
             e: React.ChangeEvent<HTMLTextAreaElement>,
@@ -372,79 +373,80 @@ const InputArea: React.FC<InputAreaProps> = React.memo(
 
         return (
             <div className={`input-area ${placement}`}>
-                {placement === "bottom" && (
-                    <div className="input-area-img-container">
-                        {fileInfoList?.map((fileInfo) => (
-                            <div
-                                key={fileInfo.name + fileInfo.id}
-                                className={
-                                    fileInfo.type === AttachmentType.Image
-                                        ? "input-area-img-wrapper"
-                                        : "input-area-text-wrapper"
-                                }
-                            >
-                                {(() => {
-                                    switch (fileInfo.type) {
-                                        case AttachmentType.Image:
-                                            return (
-                                                <img
-                                                    src={fileInfo.thumbnail}
-                                                    alt="缩略图"
-                                                    className="input-area-img"
-                                                />
-                                            );
-                                        case AttachmentType.Text:
-                                            return [
-                                                <Text fill="black" />,
-                                                <span title={fileInfo.name}>
-                                                    {fileInfo.name}
-                                                </span>,
-                                            ];
-                                        case AttachmentType.PDF:
-                                            return (
-                                                <span title={fileInfo.name}>
-                                                    {fileInfo.name} (PDF)
-                                                </span>
-                                            );
-                                        case AttachmentType.Word:
-                                            return (
-                                                <span title={fileInfo.name}>
-                                                    {fileInfo.name} (Word)
-                                                </span>
-                                            );
-                                        case AttachmentType.PowerPoint:
-                                            return (
-                                                <span title={fileInfo.name}>
-                                                    {fileInfo.name} (PowerPoint)
-                                                </span>
-                                            );
-                                        case AttachmentType.Excel:
-                                            return (
-                                                <span title={fileInfo.name}>
-                                                    {fileInfo.name} (Excel)
-                                                </span>
-                                            );
-                                        default:
-                                            return (
-                                                <span title={fileInfo.name}>
-                                                    {fileInfo.name}
-                                                </span>
-                                            );
-                                    }
-                                })()}
-                                <IconButton
-                                    border
-                                    icon={<Delete fill="black" />}
-                                    className="input-area-img-delete-button"
-                                    onClick={() => {
-                                        handleDeleteFile(fileInfo.id);
-                                    }}
-                                />
-                            </div>
-                        ))}
-                    </div>
-                )}
                 <div className="input-area-textarea-container">
+                    {placement === "bottom" && (
+                        <div className="input-area-img-container">
+                            {fileInfoList?.map((fileInfo) => (
+                                <div
+                                    key={fileInfo.name + fileInfo.id}
+                                    className={
+                                        fileInfo.type === AttachmentType.Image
+                                            ? "input-area-img-wrapper"
+                                            : "input-area-text-wrapper"
+                                    }
+                                >
+                                    {(() => {
+                                        switch (fileInfo.type) {
+                                            case AttachmentType.Image:
+                                                return (
+                                                    <img
+                                                        src={fileInfo.thumbnail}
+                                                        alt="缩略图"
+                                                        className="input-area-img"
+                                                    />
+                                                );
+                                            case AttachmentType.Text:
+                                                return [
+                                                    <Text fill="black" />,
+                                                    <span title={fileInfo.name}>
+                                                        {fileInfo.name}
+                                                    </span>,
+                                                ];
+                                            case AttachmentType.PDF:
+                                                return (
+                                                    <span title={fileInfo.name}>
+                                                        {fileInfo.name} (PDF)
+                                                    </span>
+                                                );
+                                            case AttachmentType.Word:
+                                                return (
+                                                    <span title={fileInfo.name}>
+                                                        {fileInfo.name} (Word)
+                                                    </span>
+                                                );
+                                            case AttachmentType.PowerPoint:
+                                                return (
+                                                    <span title={fileInfo.name}>
+                                                        {fileInfo.name}{" "}
+                                                        (PowerPoint)
+                                                    </span>
+                                                );
+                                            case AttachmentType.Excel:
+                                                return (
+                                                    <span title={fileInfo.name}>
+                                                        {fileInfo.name} (Excel)
+                                                    </span>
+                                                );
+                                            default:
+                                                return (
+                                                    <span title={fileInfo.name}>
+                                                        {fileInfo.name}
+                                                    </span>
+                                                );
+                                        }
+                                    })()}
+                                    <IconButton
+                                        border
+                                        icon={<Delete fill="black" />}
+                                        className="input-area-img-delete-button"
+                                        onClick={() => {
+                                            handleDeleteFile(fileInfo.id);
+                                        }}
+                                    />
+                                </div>
+                            ))}
+                        </div>
+                    )}
                     <textarea
                         ref={textareaRef}
                         className="input-area-textarea"
@@ -475,90 +477,16 @@ const InputArea: React.FC<InputAreaProps> = React.memo(
                     className={`input-area-send-button ${placement}`}
                 />
 
-                {bangListVisible && (
-                    <div
-                        className="completion-bang-list"
-                        style={{
-                            ...(placement === "top"
-                                ? { top: cursorPosition.top }
-                                : { bottom: cursorPosition.bottom }),
-                            left: cursorPosition.left,
-                        }}
-                    >
-                        {bangList.map(([bang, complete, desc], index) => (
-                            <div
-                                className={`completion-bang-container ${index === selectedBangIndex ? "selected" : ""}`}
-                                key={bang}
-                                onClick={() => {
-                                    const textarea = textareaRef.current;
-                                    if (textarea) {
-                                        const cursorPosition =
-                                            textarea.selectionStart;
-                                        const bangIndex = Math.max(
-                                            textarea.value.lastIndexOf(
-                                                "!",
-                                                cursorPosition - 1,
-                                            ),
-                                            textarea.value.lastIndexOf(
-                                                "！",
-                                                cursorPosition - 1,
-                                            ),
-                                        );
-
-                                        if (bangIndex !== -1) {
-                                            // 找到complete中的|的位置
-                                            const cursorIndex =
-                                                complete.indexOf("|");
-                                            // 如果有|，则将光标移动到|的位置，并且移除|
-                                            if (cursorIndex !== -1) {
-                                                complete =
-                                                    complete.substring(
-                                                        0,
-                                                        cursorIndex,
-                                                    ) +
-                                                    complete.substring(
-                                                        cursorIndex + 1,
-                                                    );
-                                            }
-
-                                            const newValue =
-                                                textarea.value.substring(
-                                                    0,
-                                                    bangIndex + 1,
-                                                ) +
-                                                complete +
-                                                " " +
-                                                textarea.value.substring(
-                                                    cursorPosition,
-                                                );
-                                            setInputText(newValue);
-                                            setBangListVisible(false);
-                                            // 再次聚焦到textarea输入框并设置光标位置
-                                            setTimeout(() => {
-                                                textarea.focus();
-                                                textarea.setSelectionRange(
-                                                    bangIndex +
-                                                        (cursorIndex === -1
-                                                            ? bang.length + 2
-                                                            : cursorIndex + 1),
-                                                    bangIndex +
-                                                        (cursorIndex === -1
-                                                            ? bang.length + 2
-                                                            : cursorIndex + 1),
-                                                );
-                                            });
-                                        }
-                                    }
-                                }}
-                            >
-                                <span className="completion-bang-tag">
-                                    {bang}
-                                </span>
-                                <span>{desc}</span>
-                            </div>
-                        ))}
-                    </div>
-                )}
+                <BangCompletionList
+                    bangListVisible={bangListVisible}
+                    placement={placement}
+                    cursorPosition={cursorPosition}
+                    bangList={bangList}
+                    selectedBangIndex={selectedBangIndex}
+                    textareaRef={textareaRef}
+                    setInputText={setInputText}
+                    setBangListVisible={setBangListVisible}
+                />
             </div>
         );
     },

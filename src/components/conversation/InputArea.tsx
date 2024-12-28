@@ -36,6 +36,8 @@ const InputArea: React.FC<InputAreaProps> = React.memo(
         aiIsResponsing,
         placement = "bottom",
     }) => {
+        // 图片区域的高度
+        const IMAGE_AREA_HEIGHT = 110;
         const textareaRef = useRef<HTMLTextAreaElement>(null);
         const [initialHeight, setInitialHeight] = useState<number | null>(null);
         const [bangListVisible, setBangListVisible] = useState<boolean>(false);
@@ -158,9 +160,10 @@ const InputArea: React.FC<InputAreaProps> = React.memo(
                     maxHeight,
                 );
                 textarea.style.height = `${newHeight}px`;
-                textarea.parentElement!.style.height = `${newHeight}px`;
+                console.log("fileInfoList", fileInfoList?.length != 0);
+                textarea.parentElement!.style.height = `${newHeight + ((fileInfoList?.length && IMAGE_AREA_HEIGHT) || 0)}px`;
             }
-        }, [initialHeight]);
+        }, [initialHeight, fileInfoList]);
 
         const handleTextareaChange = (
             e: React.ChangeEvent<HTMLTextAreaElement>,
@@ -374,79 +377,76 @@ const InputArea: React.FC<InputAreaProps> = React.memo(
         return (
             <div className={`input-area ${placement}`}>
                 <div className="input-area-textarea-container">
-                    {placement === "bottom" && (
-                        <div className="input-area-img-container">
-                            {fileInfoList?.map((fileInfo) => (
-                                <div
-                                    key={fileInfo.name + fileInfo.id}
-                                    className={
-                                        fileInfo.type === AttachmentType.Image
-                                            ? "input-area-img-wrapper"
-                                            : "input-area-text-wrapper"
+                    <div className="input-area-img-container">
+                        {fileInfoList?.map((fileInfo) => (
+                            <div
+                                key={fileInfo.name + fileInfo.id}
+                                className={
+                                    fileInfo.type === AttachmentType.Image
+                                        ? "input-area-img-wrapper"
+                                        : "input-area-text-wrapper"
+                                }
+                            >
+                                {(() => {
+                                    switch (fileInfo.type) {
+                                        case AttachmentType.Image:
+                                            return (
+                                                <img
+                                                    src={fileInfo.thumbnail}
+                                                    alt="缩略图"
+                                                    className="input-area-img"
+                                                />
+                                            );
+                                        case AttachmentType.Text:
+                                            return [
+                                                <Text fill="black" />,
+                                                <span title={fileInfo.name}>
+                                                    {fileInfo.name}
+                                                </span>,
+                                            ];
+                                        case AttachmentType.PDF:
+                                            return (
+                                                <span title={fileInfo.name}>
+                                                    {fileInfo.name} (PDF)
+                                                </span>
+                                            );
+                                        case AttachmentType.Word:
+                                            return (
+                                                <span title={fileInfo.name}>
+                                                    {fileInfo.name} (Word)
+                                                </span>
+                                            );
+                                        case AttachmentType.PowerPoint:
+                                            return (
+                                                <span title={fileInfo.name}>
+                                                    {fileInfo.name} (PowerPoint)
+                                                </span>
+                                            );
+                                        case AttachmentType.Excel:
+                                            return (
+                                                <span title={fileInfo.name}>
+                                                    {fileInfo.name} (Excel)
+                                                </span>
+                                            );
+                                        default:
+                                            return (
+                                                <span title={fileInfo.name}>
+                                                    {fileInfo.name}
+                                                </span>
+                                            );
                                     }
-                                >
-                                    {(() => {
-                                        switch (fileInfo.type) {
-                                            case AttachmentType.Image:
-                                                return (
-                                                    <img
-                                                        src={fileInfo.thumbnail}
-                                                        alt="缩略图"
-                                                        className="input-area-img"
-                                                    />
-                                                );
-                                            case AttachmentType.Text:
-                                                return [
-                                                    <Text fill="black" />,
-                                                    <span title={fileInfo.name}>
-                                                        {fileInfo.name}
-                                                    </span>,
-                                                ];
-                                            case AttachmentType.PDF:
-                                                return (
-                                                    <span title={fileInfo.name}>
-                                                        {fileInfo.name} (PDF)
-                                                    </span>
-                                                );
-                                            case AttachmentType.Word:
-                                                return (
-                                                    <span title={fileInfo.name}>
-                                                        {fileInfo.name} (Word)
-                                                    </span>
-                                                );
-                                            case AttachmentType.PowerPoint:
-                                                return (
-                                                    <span title={fileInfo.name}>
-                                                        {fileInfo.name}{" "}
-                                                        (PowerPoint)
-                                                    </span>
-                                                );
-                                            case AttachmentType.Excel:
-                                                return (
-                                                    <span title={fileInfo.name}>
-                                                        {fileInfo.name} (Excel)
-                                                    </span>
-                                                );
-                                            default:
-                                                return (
-                                                    <span title={fileInfo.name}>
-                                                        {fileInfo.name}
-                                                    </span>
-                                                );
-                                        }
-                                    })()}
-                                    <IconButton
-                                        border
-                                        icon={<Delete fill="black" />}
-                                        className="input-area-img-delete-button"
-                                        onClick={() => {
-                                            handleDeleteFile(fileInfo.id);
-                                        }}
-                                    />
-                                </div>
-                            ))}
-                        </div>
-                    )}
+                                })()}
+                                <IconButton
+                                    border
+                                    icon={<Delete fill="black" />}
+                                    className="input-area-img-delete-button"
+                                    onClick={() => {
+                                        handleDeleteFile(fileInfo.id);
+                                    }}
+                                />
+                            </div>
+                        ))}
+                    </div>
                     <textarea
                         ref={textareaRef}
                         className="input-area-textarea"

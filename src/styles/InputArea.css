@@ -14,13 +14,9 @@
 }
 
 .input-area-img-container {
-    position: absolute;
-    bottom: 90px;
-    right: 170px;
-    left: 170px;
     display: flex;
     flex-direction: row;
-    justify-content: flex-end;
+    justify-content: flex-start;
     align-content: center;
     flex-wrap: wrap;
 }
@@ -29,6 +25,8 @@
     position: relative;
     margin-left: 10px;
     margin-top: 10px;
+    border: 1px solid #ccc;
+    border-radius: 10px;
 }
 
 .input-area-text-wrapper {
@@ -59,15 +57,14 @@
 
 .input-area-img-delete-button {
     position: absolute;
-    top: 50%;
-    left: 50%;
-    transform: translate(-50%, -50%);
+    top: 0;
+    right: 0;
     display: none;
 }
 
 .input-area-img-wrapper:hover > .input-area-img-delete-button,
 .input-area-text-wrapper:hover > .input-area-img-delete-button {
-    display: block;
+    display: flex;
 }
 
 .input-area-img {

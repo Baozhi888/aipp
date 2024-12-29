@@ -4,13 +4,11 @@ import CircleButton from "../CircleButton";
 import Add from "../../assets/add.svg?react";
 import Stop from "../../assets/stop.svg?react";
 import UpArrow from "../../assets/up-arrow.svg?react";
-import Delete from "../../assets/delete.svg?react";
-import Text from "../../assets/text.svg?react";
-import { AttachmentType, FileInfo } from "../../data/Conversation";
-import IconButton from "../IconButton";
+import { FileInfo } from "../../data/Conversation";
 import { invoke } from "@tauri-apps/api/core";
 import { getCaretCoordinates } from "../../utils/caretCoordinates";
 import BangCompletionList from "./BangCompletionList";
+import { useFileList } from '../../hooks/useFileList';
 
 interface InputAreaProps {
     inputText: string;
@@ -37,7 +35,7 @@ const InputArea: React.FC<InputAreaProps> = React.memo(
         placement = "bottom",
     }) => {
         // 图片区域的高度
-        const IMAGE_AREA_HEIGHT = 110;
+        const IMAGE_AREA_HEIGHT = 80;
         const textareaRef = useRef<HTMLTextAreaElement>(null);
         const [initialHeight, setInitialHeight] = useState<number | null>(null);
         const [bangListVisible, setBangListVisible] = useState<boolean>(false);
@@ -50,12 +48,14 @@ const InputArea: React.FC<InputAreaProps> = React.memo(
         }>({ bottom: 0, left: 0, top: 0 });
         const [selectedBangIndex, setSelectedBangIndex] = useState<number>(0);
 
+        const { renderFiles } = useFileList(fileInfoList, handleDeleteFile);
+
         useEffect(() => {
             if (textareaRef.current && !initialHeight) {
                 setInitialHeight(textareaRef.current.scrollHeight);
             }
             adjustTextareaHeight();
-        }, [inputText, initialHeight]);
+        }, [inputText, initialHeight, fileInfoList]);
 
         useEffect(() => {
             invoke<string[]>("get_bang_list").then((bangList) => {
@@ -150,7 +150,7 @@ const InputArea: React.FC<InputAreaProps> = React.memo(
             };
         }, [originalBangList, placement]);
 
-        const adjustTextareaHeight = useCallback(() => {
+        const adjustTextareaHeight = () => {
             const textarea = textareaRef.current;
             if (textarea && initialHeight) {
                 textarea.style.height = `${initialHeight}px`;
@@ -160,10 +160,10 @@ const InputArea: React.FC<InputAreaProps> = React.memo(
                     maxHeight,
                 );
                 textarea.style.height = `${newHeight}px`;
-                console.log("fileInfoList", fileInfoList?.length != 0);
+                console.log("fileInfoList", fileInfoList, fileInfoList?.length != 0);
                 textarea.parentElement!.style.height = `${newHeight + ((fileInfoList?.length && IMAGE_AREA_HEIGHT) || 0)}px`;
             }
-        }, [initialHeight, fileInfoList]);
+        };
 
         const handleTextareaChange = (
             e: React.ChangeEvent<HTMLTextAreaElement>,
@@ -378,74 +378,7 @@ const InputArea: React.FC<InputAreaProps> = React.memo(
             <div className={`input-area ${placement}`}>
                 <div className="input-area-textarea-container">
                     <div className="input-area-img-container">
-                        {fileInfoList?.map((fileInfo) => (
-                            <div
-                                key={fileInfo.name + fileInfo.id}
-                                className={
-                                    fileInfo.type === AttachmentType.Image
-                                        ? "input-area-img-wrapper"
-                                        : "input-area-text-wrapper"
-                                }
-                            >
-                                {(() => {
-                                    switch (fileInfo.type) {
-                                        case AttachmentType.Image:
-                                            return (
-                                                <img
-                                                    src={fileInfo.thumbnail}
-                                                    alt="缩略图"
-                                                    className="input-area-img"
-                                                />
-                                            );
-                                        case AttachmentType.Text:
-                                            return [
-                                                <Text fill="black" />,
-                                                <span title={fileInfo.name}>
-                                                    {fileInfo.name}
-                                                </span>,
-                                            ];
-                                        case AttachmentType.PDF:
-                                            return (
-                                                <span title={fileInfo.name}>
-                                                    {fileInfo.name} (PDF)
-                                                </span>
-                                            );
-                                        case AttachmentType.Word:
-                                            return (
-                                                <span title={fileInfo.name}>
-                                                    {fileInfo.name} (Word)
-                                                </span>
-                                            );
-                                        case AttachmentType.PowerPoint:
-                                            return (
-                                                <span title={fileInfo.name}>
-                                                    {fileInfo.name} (PowerPoint)
-                                                </span>
-                                            );
-                                        case AttachmentType.Excel:
-                                            return (
-                                                <span title={fileInfo.name}>
-                                                    {fileInfo.name} (Excel)
-                                                </span>
-                                            );
-                                        default:
-                                            return (
-                                                <span title={fileInfo.name}>
-                                                    {fileInfo.name}
-                                                </span>
-                                            );
-                                    }
-                                })()}
-                                <IconButton
-                                    border
-                                    icon={<Delete fill="black" />}
-                                    className="input-area-img-delete-button"
-                                    onClick={() => {
-                                        handleDeleteFile(fileInfo.id);
-                                    }}
-                                />
-                            </div>
-                        ))}
+                        {renderFiles()}
                     </div>
                     <textarea
                         ref={textareaRef}

@@ -27,6 +27,13 @@
     margin-top: 10px;
     border: 1px solid #ccc;
     border-radius: 10px;
+    overflow: hidden;
+    cursor: pointer;
+    height: 70px;
+    width: 70px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
 }
 
 .input-area-text-wrapper {
@@ -68,7 +75,13 @@
 }
 
 .input-area-img {
-    max-width: 100px;
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+    display: block;
+    position: absolute;
+    top: 0;
+    left: 0;
 }
 
 .bottom .input-area-textarea-container {

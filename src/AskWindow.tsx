@@ -74,6 +74,7 @@ function AskWindow() {
                     prompt: query,
                     conversation_id: "",
                     assistant_id: 1,
+                    attachment_list: fileInfoList?.map((i) => i.id),
                 },
             }).then((res) => {
                 setMessageId(res.add_message_id);

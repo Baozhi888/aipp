@@ -60,6 +60,12 @@ impl From<tauri::Error> for AppError {
     }
 }
 
+impl From<tauri_plugin_opener::Error> for AppError {
+    fn from(err: tauri_plugin_opener::Error) -> Self {
+        AppError::IoError(err.to_string())
+    }
+}
+
 impl From<Box<dyn StdError>> for AppError {
     fn from(err: Box<dyn StdError>) -> Self {
         AppError::UnknownError(err.to_string())

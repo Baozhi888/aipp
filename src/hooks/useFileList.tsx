@@ -6,14 +6,17 @@ import Delete from "../assets/delete.svg?react";
 
 interface FileListRendererProps {
   fileInfo: FileInfo;
-  onDelete?: (fileId: number) => void;
+  onOpen?: (fileId: number) => void;
 }
 
-const FileListRenderer: React.FC<FileListRendererProps> = ({ fileInfo }) => {
+const FileListRenderer: React.FC<FileListRendererProps> = ({ fileInfo, onOpen }) => {
   switch (fileInfo.type) {
     case AttachmentType.Image:
       return (
         <img
+          onClick={() => {
+            onOpen && onOpen(fileInfo.id);
+          }}
           src={fileInfo.thumbnail}
           alt="缩略图"
           className="input-area-img"
@@ -59,7 +62,7 @@ const FileListRenderer: React.FC<FileListRendererProps> = ({ fileInfo }) => {
   }
 };
 
-export const useFileList = (fileInfoList: FileInfo[] | null, onDelete: (fileId: number) => void) => {
+export const useFileList = (fileInfoList: FileInfo[] | null, onDelete: (fileId: number) => void, onOpen: (fileId: number) => void) => {
   const renderFiles = React.useCallback(() => {
     return fileInfoList?.map((fileInfo) => (
       <div
@@ -70,7 +73,7 @@ export const useFileList = (fileInfoList: FileInfo[] | null, onDelete: (fileId: 
             : "input-area-text-wrapper"
         }
       >
-        <FileListRenderer fileInfo={fileInfo} />
+        <FileListRenderer fileInfo={fileInfo} onOpen={onOpen} />
 
         <IconButton
           border

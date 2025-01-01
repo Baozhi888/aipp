@@ -4,9 +4,11 @@ use base64::encode;
 use mime_guess::from_path;
 use serde::Serialize;
 use sha2::{Digest, Sha256};
+use tauri_plugin_shell::Shell;
 use std::fs::File;
 use std::io::Read;
 use std::path::Path;
+use tauri_plugin_opener::OpenerExt;
 
 use crate::{
     db::conversation_db::{ConversationDatabase, MessageAttachment},
@@ -215,6 +217,21 @@ pub async fn add_attachment_content(
         }
     }
 }
+
+#[tauri::command]
+pub async fn open_attachment_with_default_app(id: i64, app_handle: tauri::AppHandle) -> Result<(), AppError> {
+    let db = ConversationDatabase::new(&app_handle).map_err(AppError::from)?;
+    let attachment = db.attachment_repo().unwrap().read(id)?;
+
+    let file_path = Path::new("attachments").join(attachment.unwrap().attachment_url.as_ref().unwrap());
+    let file_path = file_path.to_str().unwrap();
+    println!("file_path: {}", file_path);
+
+    let opener = app_handle.opener();
+    opener.open_path(file_path, None::<&str>)?;
+    Ok(())
+}
+
 
 fn read_image_as_base64(file_path: &str) -> Result<String> {
     // 打开文件

@@ -48,7 +48,10 @@ const InputArea: React.FC<InputAreaProps> = React.memo(
         }>({ bottom: 0, left: 0, top: 0 });
         const [selectedBangIndex, setSelectedBangIndex] = useState<number>(0);
 
-        const { renderFiles } = useFileList(fileInfoList, handleDeleteFile);
+        const handleOpenFile = (fileId: number) => {
+            invoke("open_attachment_with_default_app", { id: fileId });
+        }
+        const { renderFiles } = useFileList(fileInfoList, handleDeleteFile, handleOpenFile);
 
         useEffect(() => {
             if (textareaRef.current && !initialHeight) {

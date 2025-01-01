@@ -1,10 +1,9 @@
 use crate::db::conversation_db::{AttachmentType, Repository};
 use anyhow::{anyhow, Result};
-use base64::encode;
+use base64::{engine::general_purpose::STANDARD, Engine};
 use mime_guess::from_path;
 use serde::Serialize;
 use sha2::{Digest, Sha256};
-use tauri_plugin_shell::Shell;
 use std::fs::File;
 use std::io::Read;
 use std::path::Path;
@@ -232,7 +231,6 @@ pub async fn open_attachment_with_default_app(id: i64, app_handle: tauri::AppHan
     Ok(())
 }
 
-
 fn read_image_as_base64(file_path: &str) -> Result<String> {
     // 打开文件
     let mut file = File::open(file_path)?;
@@ -240,6 +238,6 @@ fn read_image_as_base64(file_path: &str) -> Result<String> {
     // 读取文件内容到字节向量
     let mut buffer = Vec::new();
     file.read_to_end(&mut buffer)?;
-    let base64_string = encode(&buffer);
+    let base64_string = STANDARD.encode(&buffer);
     Ok(base64_string)
 }

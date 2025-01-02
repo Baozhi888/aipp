@@ -1,4 +1,4 @@
-use std::collections::HashMap;
+use std::{collections::HashMap, time::Duration};
 
 use anyhow::{bail, Result};
 use reqwest::{
@@ -47,7 +47,10 @@ impl ModelProvider for OpenAIProvider {
     {
         OpenAIProvider {
             llm_provider_config,
-            client: Client::new(),
+            client: Client::builder()
+                .timeout(Duration::from_secs(300))
+                .build()
+                .unwrap(),
         }
     }
 

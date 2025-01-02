@@ -1,4 +1,4 @@
-import React, { useRef, useEffect, useState } from "react";
+import React, { useRef, useEffect, useState, useCallback } from "react";
 import "../../styles/InputArea.css";
 import CircleButton from "../CircleButton";
 import Add from "../../assets/add.svg?react";
@@ -377,10 +377,14 @@ const InputArea: React.FC<InputAreaProps> = React.memo(
             scrollToSelectedBang();
         }, [selectedBangIndex]);
 
+        const handleImageContainerClick = useCallback(() => {
+            textareaRef.current?.focus();
+        }, [textareaRef]);
+
         return (
             <div className={`input-area ${placement}`}>
                 <div className="input-area-textarea-container">
-                    <div className="input-area-img-container">
+                    <div className="input-area-img-container" onClick={handleImageContainerClick}>
                         {renderFiles()}
                     </div>
                     <textarea

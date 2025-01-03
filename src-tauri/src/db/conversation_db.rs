@@ -525,6 +525,7 @@ impl ConversationDatabase {
                 message_id         INTEGER,
                 attachment_type    INTEGER           not null,
                 attachment_url     TEXT,
+                attachment_hash    TEXT,
                 attachment_content TEXT,
                 use_vector         BOOLEAN default 0 not null,
                 token_count        INTEGER

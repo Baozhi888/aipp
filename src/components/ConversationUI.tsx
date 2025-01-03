@@ -1,22 +1,8 @@
 import { invoke } from "@tauri-apps/api/core";
-import { open } from "@tauri-apps/plugin-dialog";
-import { readFile } from "@tauri-apps/plugin-fs";
-import React, {
-    useCallback,
-    useEffect,
-    useMemo,
-    useRef,
-    useState,
-} from "react";
-import { toast } from 'sonner';
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { toast } from "sonner";
 
-import {
-    AddAttachmentResponse,
-    AttachmentType,
-    Conversation,
-    FileInfo,
-    Message,
-} from "../data/Conversation";
+import { Conversation, FileInfo, Message } from "../data/Conversation";
 import "katex/dist/katex.min.css";
 import { listen } from "@tauri-apps/api/event";
 import { throttle } from "lodash";
@@ -28,6 +14,7 @@ import useFileDropHandler from "../hooks/useFileDropHandler";
 import InputArea from "./conversation/InputArea";
 import FormDialog from "./FormDialog";
 import useConversationManager from "../hooks/useConversationManager";
+import useFileManagement from "@/hooks/useFileManagement";
 
 interface AssistantListItem {
     id: number;
@@ -43,9 +30,17 @@ interface ConversationUIProps {
 
 // 用于存储AskAssistantApi中对应的处理函数
 interface AskAssistantApiFunctions {
-    onCustomUserMessage?: (question: string, assistantId: string, conversationId?: string) => any;
+    onCustomUserMessage?: (
+        question: string,
+        assistantId: string,
+        conversationId?: string,
+    ) => any;
     onCustomUserMessageComing?: (aiResponse: AiResponse) => void;
-    onStreamMessageListener?: (payload: string, aiResponse: AiResponse, responseIsResponsingFunction: (isFinish: boolean) => void) => void;
+    onStreamMessageListener?: (
+        payload: string,
+        aiResponse: AiResponse,
+        responseIsResponsingFunction: (isFinish: boolean) => void,
+    ) => void;
 }
 
 function ConversationUI({
@@ -54,42 +49,81 @@ function ConversationUI({
     pluginList,
 }: ConversationUIProps) {
     // 插件实例
-    const [assistantTypePluginMap, setAssistantTypePluginMap] = useState<Map<number, TeaAssistantTypePlugin>>(new Map());
+    const [assistantTypePluginMap, setAssistantTypePluginMap] = useState<
+        Map<number, TeaAssistantTypePlugin>
+    >(new Map());
     const assistantTypeApi: AssistantTypeApi = {
-        typeRegist: (code: number, _: string, pluginInstance: TeaAssistantTypePlugin & TeaPlugin) => {
-            setAssistantTypePluginMap(prev => {
+        typeRegist: (
+            code: number,
+            _: string,
+            pluginInstance: TeaAssistantTypePlugin & TeaPlugin,
+        ) => {
+            setAssistantTypePluginMap((prev) => {
                 const newMap = new Map(prev);
                 newMap.set(code, pluginInstance);
                 return newMap;
             });
         },
-        changeFieldLabel: (_: string, __: string) => {
-        },
-        addField: (_: string, __: string, ___: string, ____?: FieldConfig) => {
-        },
-        addFieldTips: (_: string, __: string) => {
-        },
-        runLogic: (_: (assistantRunApi: AssistantRunApi) => void) => { },
-        forceFieldValue: function (_: string, __: string): void {
-
-        }
+        changeFieldLabel: (_: string, __: string) => {},
+        addField: (
+            _: string,
+            __: string,
+            ___: string,
+            ____?: FieldConfig,
+        ) => {},
+        addFieldTips: (_: string, __: string) => {},
+        runLogic: (_: (assistantRunApi: AssistantRunApi) => void) => {},
+        forceFieldValue: function (_: string, __: string): void {},
     };
-    const [functionMap, setFunctionMap] = useState<Map<number, AskAssistantApiFunctions>>(new Map());
+    const [functionMap, setFunctionMap] = useState<
+        Map<number, AskAssistantApiFunctions>
+    >(new Map());
     const assistantRunApi: AssistantRunApi = {
-        askAI: function (question: string, modelId: string, prompt?: string, conversationId?: string): AskAiResponse {
+        askAI: function (
+            question: string,
+            modelId: string,
+            prompt?: string,
+            conversationId?: string,
+        ): AskAiResponse {
             console.log("ask AI", question, modelId, prompt, conversationId);
             return {
-                answer: ""
+                answer: "",
             };
         },
-        askAssistant: function (question: string, assistantId: string, conversationId?: string, overrideModelConfig?: Array<[string, any]>, overrideSystemPrompt?: string,
-            onCustomUserMessage?: (question: string, assistantId: string, conversationId?: string) => any,
+        askAssistant: function (
+            question: string,
+            assistantId: string,
+            conversationId?: string,
+            fileInfoList?: FileInfo[],
+            overrideModelConfig?: Array<[string, any]>,
+            overrideSystemPrompt?: string,
+            onCustomUserMessage?: (
+                question: string,
+                assistantId: string,
+                conversationId?: string,
+            ) => any,
             onCustomUserMessageComing?: (_: AiResponse) => void,
-            onStreamMessageListener?: (_: string, __: AiResponse, responseFinishFunction: (_: boolean) => void) => void): Promise<AiResponse> {
-            console.log("ask assistant", question, assistantId, conversationId, overrideModelConfig, overrideSystemPrompt);
+            onStreamMessageListener?: (
+                _: string,
+                __: AiResponse,
+                responseFinishFunction: (_: boolean) => void,
+            ) => void,
+        ): Promise<AiResponse> {
+            console.log(
+                "ask assistant",
+                question,
+                assistantId,
+                conversationId,
+                overrideModelConfig,
+                overrideSystemPrompt,
+            );
             let userMessage: any;
             if (onCustomUserMessage) {
-                userMessage = onCustomUserMessage(question, assistantId, conversationId);
+                userMessage = onCustomUserMessage(
+                    question,
+                    assistantId,
+                    conversationId,
+                );
             } else {
                 userMessage = {
                     id: 0,
@@ -114,112 +148,124 @@ function ConversationUI({
                     attachment_list: fileInfoList?.map((i) => i.id),
                 },
                 overrideModelConfig: overrideModelConfig,
-                overridePrompt: overrideSystemPrompt
-            }).then((res) => {
-                console.log("ask assistant response", res);
-                if (unsubscribeRef.current) {
-                    console.log(
-                        "Unsubscribing from previous event listener"
-                    );
-                    unsubscribeRef.current.then((f) => f());
-                }
-                console.log(`init ${res.add_message_id} function map`)
-                setFunctionMap(prev => {
-                    const newMap = new Map(prev);
-                    newMap.set(res.add_message_id, {
-                        onCustomUserMessage,
-                        onCustomUserMessageComing,
-                        onStreamMessageListener
-                    });
-                    return newMap;
-                });
-
-                const customUserMessageComing = functionMap.get(res.add_message_id)?.onCustomUserMessageComing;
-                if (customUserMessageComing) {
-                    customUserMessageComing(res);
-                } else {
-                    setMessageId(res.add_message_id);
-
-                    setMessages((prevMessages) => {
-                        const newMessages = [...prevMessages];
-                        const index = prevMessages.findIndex(
-                            (msg) => msg == userMessage,
+                overridePrompt: overrideSystemPrompt,
+            })
+                .then((res) => {
+                    console.log("ask assistant response", res);
+                    if (unsubscribeRef.current) {
+                        console.log(
+                            "Unsubscribing from previous event listener",
                         );
-                        if (index !== -1) {
-                            newMessages[index] = {
-                                ...newMessages[index],
-                                content: res.request_prompt_result_with_context,
-                            };
-                        }
-                        return newMessages;
+                        unsubscribeRef.current.then((f) => f());
+                    }
+                    console.log(`init ${res.add_message_id} function map`);
+                    setFunctionMap((prev) => {
+                        const newMap = new Map(prev);
+                        newMap.set(res.add_message_id, {
+                            onCustomUserMessage,
+                            onCustomUserMessageComing,
+                            onStreamMessageListener,
+                        });
+                        return newMap;
                     });
-                }
 
+                    const customUserMessageComing = functionMap.get(
+                        res.add_message_id,
+                    )?.onCustomUserMessageComing;
+                    if (customUserMessageComing) {
+                        customUserMessageComing(res);
+                    } else {
+                        setMessageId(res.add_message_id);
 
-                if (conversationId != res.conversation_id + "") {
-                    onChangeConversationId(res.conversation_id + "");
-                } else {
-                    const assistantMessage = {
-                        id: res.add_message_id,
-                        conversation_id: conversationId
-                            ? -1
-                            : +conversationId,
-                        llm_model_id: -1,
-                        content: "",
-                        token_count: 0,
-                        message_type: "assistant",
-                        created_time: new Date(),
-                        attachment_list: [],
-                        regenerate: null,
-                    };
-
-                    setMessages((prevMessages) => [
-                        ...prevMessages,
-                        assistantMessage,
-                    ]);
-                }
-
-                console.log(
-                    "Listening for response",
-                    `message_${res.add_message_id}`,
-                );
-
-                unsubscribeRef.current = listen(
-                    `message_${res.add_message_id}`,
-                    (event) => {
-                        const streamMessageListener = functionMap.get(res.add_message_id)?.onStreamMessageListener;
-                        if (streamMessageListener) {
-                            streamMessageListener(event.payload as string, res, setAiIsResponsing);
-                        } else {
-                            const payload = event.payload as string;
-                            if (payload !== "Tea::Event::MessageFinish") {
-                                // 更新messages的最后一个对象
-                                setMessages((prevMessages) => {
-                                    const newMessages = [...prevMessages];
-                                    const index = newMessages.findIndex(
-                                        (msg) => msg.id === res.add_message_id,
-                                    );
-                                    if (index !== -1) {
-                                        newMessages[index] = {
-                                            ...newMessages[index],
-                                            content: event.payload as string,
-                                        };
-                                        scroll();
-                                    }
-                                    return newMessages;
-                                });
-                            } else {
-                                setAiIsResponsing(false);
+                        setMessages((prevMessages) => {
+                            const newMessages = [...prevMessages];
+                            const index = prevMessages.findIndex(
+                                (msg) => msg == userMessage,
+                            );
+                            if (index !== -1) {
+                                newMessages[index] = {
+                                    ...newMessages[index],
+                                    content:
+                                        res.request_prompt_result_with_context,
+                                };
                             }
-                        }
-                    },
-                );
-                return res;
-            }).catch(e => {
-                console.error("ask assistant error", e);
-                toast.error("发送消息失败: " + e);
-                throw e;
-            });
+                            return newMessages;
+                        });
+                    }
+
+                    if (conversationId != res.conversation_id + "") {
+                        onChangeConversationId(res.conversation_id + "");
+                    } else {
+                        const assistantMessage = {
+                            id: res.add_message_id,
+                            conversation_id: conversationId
+                                ? -1
+                                : +conversationId,
+                            llm_model_id: -1,
+                            content: "",
+                            token_count: 0,
+                            message_type: "assistant",
+                            created_time: new Date(),
+                            attachment_list: [],
+                            regenerate: null,
+                        };
+
+                        setMessages((prevMessages) => [
+                            ...prevMessages,
+                            assistantMessage,
+                        ]);
+                    }
+
+                    console.log(
+                        "Listening for response",
+                        `message_${res.add_message_id}`,
+                    );
+
+                    unsubscribeRef.current = listen(
+                        `message_${res.add_message_id}`,
+                        (event) => {
+                            const streamMessageListener = functionMap.get(
+                                res.add_message_id,
+                            )?.onStreamMessageListener;
+                            if (streamMessageListener) {
+                                streamMessageListener(
+                                    event.payload as string,
+                                    res,
+                                    setAiIsResponsing,
+                                );
+                            } else {
+                                const payload = event.payload as string;
+                                if (payload !== "Tea::Event::MessageFinish") {
+                                    // 更新messages的最后一个对象
+                                    setMessages((prevMessages) => {
+                                        const newMessages = [...prevMessages];
+                                        const index = newMessages.findIndex(
+                                            (msg) =>
+                                                msg.id === res.add_message_id,
+                                        );
+                                        if (index !== -1) {
+                                            newMessages[index] = {
+                                                ...newMessages[index],
+                                                content:
+                                                    event.payload as string,
+                                            };
+                                            scroll();
+                                        }
+                                        return newMessages;
+                                    });
+                                } else {
+                                    setAiIsResponsing(false);
+                                }
+                            }
+                        },
+                    );
+                    return res;
+                })
+                .catch((e) => {
+                    console.error("ask assistant error", e);
+                    toast.error("发送消息失败: " + e);
+                    throw e;
+                });
         },
         getUserInput: function (): string {
             console.log("get user input");
@@ -229,16 +275,22 @@ function ConversationUI({
             console.log("get model id");
             return "";
         },
-        getField: async function (assistantId: string, fieldName: string): Promise<string> {
+        getField: async function (
+            assistantId: string,
+            fieldName: string,
+        ): Promise<string> {
             console.log("get field", fieldName);
-            return await invoke<string>("get_assistant_field_value", { assistantId: +assistantId, fieldName });
+            return await invoke<string>("get_assistant_field_value", {
+                assistantId: +assistantId,
+                fieldName,
+            });
         },
         appendAiResponse: function (messageId: number, response: string): void {
             console.log("append ai response", messageId, response);
             setMessages((prevMessages) => {
                 const newMessages = [...prevMessages];
                 const index = newMessages.findIndex(
-                    (msg) => msg.id === messageId
+                    (msg) => msg.id === messageId,
                 );
                 if (index !== -1) {
                     newMessages[index] = {
@@ -255,7 +307,7 @@ function ConversationUI({
             setMessages((prevMessages) => {
                 const newMessages = [...prevMessages];
                 const index = newMessages.findIndex(
-                    (msg) => msg.id === messageId
+                    (msg) => msg.id === messageId,
                 );
                 if (index !== -1) {
                     newMessages[index] = {
@@ -273,14 +325,18 @@ function ConversationUI({
             } else {
                 return conversation.assistant_id + "";
             }
-        }
-    }
+        },
+    };
 
     useEffect(() => {
         // 加载助手类型的插件
-        pluginList.filter((plugin: any) => plugin.pluginType.includes("assistantType")).forEach((plugin: any) => {
-            plugin.instance?.onAssistantTypeInit(assistantTypeApi);
-        });
+        pluginList
+            .filter((plugin: any) =>
+                plugin.pluginType.includes("assistantType"),
+            )
+            .forEach((plugin: any) => {
+                plugin.instance?.onAssistantTypeInit(assistantTypeApi);
+            });
     }, [pluginList]);
 
     // 是否应用滚动，默认是
@@ -379,9 +435,18 @@ function ConversationUI({
             unsubscribeRef.current = listen(
                 `message_${lastMessageId}`,
                 (event) => {
-                    const streamMessageListener = functionMap.get(lastMessageId)?.onStreamMessageListener;
+                    const streamMessageListener =
+                        functionMap.get(lastMessageId)?.onStreamMessageListener;
                     if (streamMessageListener) {
-                        streamMessageListener(event.payload as string, { conversation_id: +conversationId, add_message_id: lastMessageId, request_prompt_result_with_context: "" }, setAiIsResponsing);
+                        streamMessageListener(
+                            event.payload as string,
+                            {
+                                conversation_id: +conversationId,
+                                add_message_id: lastMessageId,
+                                request_prompt_result_with_context: "",
+                            },
+                            setAiIsResponsing,
+                        );
                     } else {
                         const payload = event.payload as string;
                         if (payload !== "Tea::Event::MessageFinish") {
@@ -437,6 +502,14 @@ function ConversationUI({
         scroll();
     }, [messages]);
 
+    const {
+        fileInfoList,
+        clearFileInfoList,
+        handleChooseFile,
+        handleDeleteFile,
+        handlePaste,
+    } = useFileManagement();
+
     const [inputText, setInputText] = useState("");
     const [aiIsResponsing, setAiIsResponsing] = useState<boolean>(false);
     const [messageId, setMessageId] = useState<number>(-1);
@@ -463,9 +536,11 @@ function ConversationUI({
                 assistantId = conversation.assistant_id + "";
             }
 
-            const assistantData = assistants.find(a => a.id === +assistantId);
+            const assistantData = assistants.find((a) => a.id === +assistantId);
             if (assistantData?.assistant_type !== 0) {
-                assistantTypePluginMap.get(assistantData?.assistant_type ?? 0)?.onAssistantTypeRun(assistantRunApi);
+                assistantTypePluginMap
+                    .get(assistantData?.assistant_type ?? 0)
+                    ?.onAssistantTypeRun(assistantRunApi);
             } else {
                 try {
                     const userMessage = {
@@ -480,7 +555,10 @@ function ConversationUI({
                         regenerate: null,
                     };
 
-                    setMessages((prevMessages) => [...prevMessages, userMessage]);
+                    setMessages((prevMessages) => [
+                        ...prevMessages,
+                        userMessage,
+                    ]);
                     invoke<AiResponse>("ask_ai", {
                         request: {
                             prompt: inputText,
@@ -507,7 +585,8 @@ function ConversationUI({
                             if (index !== -1) {
                                 newMessages[index] = {
                                     ...newMessages[index],
-                                    content: res.request_prompt_result_with_context,
+                                    content:
+                                        res.request_prompt_result_with_context,
                                 };
                             }
                             return newMessages;
@@ -550,12 +629,14 @@ function ConversationUI({
                                     setMessages((prevMessages) => {
                                         const newMessages = [...prevMessages];
                                         const index = newMessages.findIndex(
-                                            (msg) => msg.id === res.add_message_id,
+                                            (msg) =>
+                                                msg.id === res.add_message_id,
                                         );
                                         if (index !== -1) {
                                             newMessages[index] = {
                                                 ...newMessages[index],
-                                                content: event.payload as string,
+                                                content:
+                                                    event.payload as string,
                                             };
                                             scroll();
                                         }
@@ -573,7 +654,7 @@ function ConversationUI({
             }
 
             setInputText("");
-            setFileInfoList(null);
+            clearFileInfoList();
         }
     }, 200);
 
@@ -606,152 +687,9 @@ function ConversationUI({
         [messages],
     );
 
-    const [fileInfoList, setFileInfoList] = useState<Array<FileInfo> | null>(
-        null,
-    );
-    const handleChooseFile = useCallback(async () => {
-        try {
-            const selected = await open({
-                multiple: false,
-            });
-
-            if (selected) {
-                const path = selected as string;
-                const name =
-                    path.split("\\").pop() || path.split("/").pop() || "";
-
-                // 读取文件内容
-                const contents = await readFile(path);
-
-                // 如果是图片, 创建缩略图
-                let thumbnail,
-                    type = AttachmentType.Text;
-                if (name.match(/\.(jpg|jpeg|png|gif)$/)) {
-                    const blob = new Blob([contents]);
-                    thumbnail = URL.createObjectURL(blob);
-                    type = AttachmentType.Image;
-                }
-
-                let newFile = { id: -1, name, path, thumbnail, type };
-                setFileInfoList([...(fileInfoList || []), newFile]);
-
-                // 调用Rust函数处理文件
-                invoke<AddAttachmentResponse>("add_attachment", {
-                    fileUrl: path,
-                })
-                    .then((res) => {
-                        newFile.id = res.attachment_id;
-                    })
-                    .catch((error) => {
-                        toast.error("文件上传失败: " + JSON.stringify(error));
-                    });
-            }
-        } catch (error) {
-            toast.error("文件选择失败: " + error);
-        }
-    }, [fileInfoList]);
-
-    const handleDeleteFile = useCallback((fileId: number) => {
-        setFileInfoList((prevList) =>
-            prevList ? prevList.filter((file) => file.id !== fileId) : null,
-        );
-    }, []);
-
-    const getAttachmentType = useCallback((fileType: string) => {
-        if (fileType.startsWith("image/")) {
-            return AttachmentType.Image;
-        } else if (fileType === "text/plain") {
-            return AttachmentType.Text;
-        } else {
-            return AttachmentType.Text;
-        }
-    }, []);
-
-    const onFilesSelect = useCallback((files: File[]) => {
-        setIsDragging(false);
-        const newFiles = files.filter(
-            (file) =>
-                file.type === "image/png" ||
-                file.type === "image/jpeg" ||
-                file.type === "image/gif" ||
-                file.type === "text/plain",
-        );
-
-        const filePromises = newFiles.map(
-            (file) =>
-                new Promise<FileInfo>((resolve, reject) => {
-                    const reader = new FileReader();
-                    reader.onload = (event) => {
-                        const fileContent = event.target?.result;
-                        if (typeof fileContent === "string") {
-                            let newFile: FileInfo = {
-                                id: -1,
-                                name: file.name,
-                                path: file.name,
-                                type: getAttachmentType(file.type),
-                                thumbnail: fileContent,
-                            };
-                            resolve(newFile);
-                        } else {
-                            reject(new Error("Failed to read file content"));
-                        }
-                    };
-                    reader.onerror = (error) => {
-                        console.error(
-                            `Error reading file: ${file.name}`,
-                            error,
-                        );
-                        reject(error);
-                    };
-                    if (file.type.startsWith("image/")) {
-                        reader.readAsDataURL(file);
-                    } else if (file.type === "text/plain") {
-                        reader.readAsText(file);
-                    } else {
-                        reader.readAsArrayBuffer(file);
-                    }
-                }),
-        );
-
-        Promise.all(filePromises)
-            .then((newFileInfos) => {
-                setFileInfoList((prev) => [...(prev || []), ...newFileInfos]);
-
-                newFileInfos.forEach((fileInfo) => {
-                    invoke<AddAttachmentResponse>("add_attachment_content", {
-                        fileContent: fileInfo.thumbnail,
-                        fileName: fileInfo.name,
-                        attachmentType: fileInfo.type,
-                    })
-                        .then((res) => {
-                            setFileInfoList(
-                                (prev) =>
-                                    prev?.map((f) =>
-                                        f.name === fileInfo.name && f.id === -1
-                                            ? { ...f, id: res.attachment_id }
-                                            : f,
-                                    ) || null,
-                            );
-                        })
-                        .catch((error) => {
-                            toast.error("文件上传失败: " + error);
-                        });
-                });
-            })
-            .catch((error) => {
-                toast.error("文件选择失败: " + error);
-            });
-    }, []);
-
     // 文件拖拽处理
     const { isDragging, setIsDragging, dropRef } =
-        useFileDropHandler(onFilesSelect);
-
-    const handlePaste = (e: React.ClipboardEvent<HTMLTextAreaElement>) => {
-        if (e.clipboardData.files.length > 0) {
-            onFilesSelect(Array.from(e.clipboardData.files));
-        }
-    };
+        useFileDropHandler(handleChooseFile);
 
     const [formDialogIsOpen, setFormDialogIsOpen] = useState<boolean>(false);
     const openFormDialog = useCallback(() => {
@@ -905,7 +843,7 @@ function ConversationUI({
             {isDragging ? (
                 <FileDropArea
                     onDragChange={setIsDragging}
-                    onFilesSelect={onFilesSelect}
+                    onFilesSelect={handleChooseFile}
                 />
             ) : null}
 
@@ -918,6 +856,7 @@ function ConversationUI({
                 handlePaste={handlePaste}
                 handleSend={handleSend}
                 aiIsResponsing={aiIsResponsing}
+                placement="bottom"
             />
 
             <FormDialog

@@ -18,7 +18,7 @@ use crate::api::assistant_api::{
     add_assistant, copy_assistant, delete_assistant, get_assistant, get_assistant_field_value,
     get_assistants, save_assistant,
 };
-use crate::api::attachment_api::{add_attachment, add_attachment_content};
+use crate::api::attachment_api::{add_attachment, open_attachment_with_default_app};
 use crate::api::conversation_api::{
     delete_conversation, get_conversation_with_messages, list_conversations, update_conversation,
 };
@@ -119,6 +119,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     let app = tauri::Builder::default()
         .plugin(tauri_plugin_fs::init())
         .plugin(tauri_plugin_shell::init())
+        .plugin(tauri_plugin_opener::init())
         .plugin(tauri_plugin_clipboard_manager::init())
         .plugin(tauri_plugin_dialog::init())
         .setup(|app| {
@@ -270,7 +271,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
             add_llm_model,
             delete_llm_model,
             add_attachment,
-            add_attachment_content,
+            open_attachment_with_default_app,
             get_assistants,
             get_assistant,
             get_assistant_field_value,

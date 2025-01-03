@@ -1,12 +1,13 @@
 use crate::db::conversation_db::{AttachmentType, Repository};
 use anyhow::{anyhow, Result};
-use base64::encode;
+use base64::{engine::general_purpose::STANDARD, Engine};
 use mime_guess::from_path;
 use serde::Serialize;
 use sha2::{Digest, Sha256};
 use std::fs::File;
 use std::io::Read;
 use std::path::Path;
+use tauri_plugin_opener::OpenerExt;
 
 use crate::{
     db::conversation_db::{ConversationDatabase, MessageAttachment},
@@ -21,6 +22,31 @@ pub struct AttachmentResult {
 #[tauri::command]
 pub async fn add_attachment(
     app_handle: tauri::AppHandle,
+    file_url: Option<String>,
+    file_content: Option<String>,
+    file_name: Option<String>,
+    attachment_type: Option<i64>,
+) -> Result<AttachmentResult, AppError> {
+    println!("add_attachment file_url: {:?} file_name: {:?}", file_url, file_name);
+    // 如果有 URL，使用 add_attachment_by_url
+    if let Some(url) = file_url {
+        return add_attachment_by_url(app_handle, url).await;
+    }
+
+    // 如果有 content 和其他必要参数，使用 add_attachment_content
+    if let (Some(content), Some(name), Some(att_type)) = (file_content, file_name, attachment_type) {
+        return add_attachment_content(app_handle, content, name, att_type).await;
+    }
+
+    // 如果都没有提供有效参数，返回错误
+    Err(AppError::Anyhow(
+        "无效的参数：需要提供文件URL或者（文件内容、文件名、附件类型）"
+            .to_string(),
+    ))
+}
+
+pub async fn add_attachment_by_url(
+    app_handle: tauri::AppHandle,
     file_url: String,
 ) -> Result<AttachmentResult, AppError> {
     // 1. 解析文件路径
@@ -28,7 +54,7 @@ pub async fn add_attachment(
 
     // 2. 检查文件是否存在
     if !file_path.exists() {
-        return Err(AppError::Anyhow(anyhow!("File not found").to_string()));
+        return Err(AppError::Anyhow(anyhow!("找不到对应的文件").to_string()));
     }
 
     // 3. 解析文件类型
@@ -143,7 +169,6 @@ pub async fn add_attachment(
     }
 }
 
-#[tauri::command]
 pub async fn add_attachment_content(
     app_handle: tauri::AppHandle,
     file_content: String,
@@ -192,6 +217,20 @@ pub async fn add_attachment_content(
     }
 }
 
+#[tauri::command]
+pub async fn open_attachment_with_default_app(id: i64, app_handle: tauri::AppHandle) -> Result<(), AppError> {
+    let db = ConversationDatabase::new(&app_handle).map_err(AppError::from)?;
+    let attachment = db.attachment_repo().unwrap().read(id)?;
+
+    let file_path = Path::new("attachments").join(attachment.unwrap().attachment_url.as_ref().unwrap());
+    let file_path = file_path.to_str().unwrap();
+    println!("file_path: {}", file_path);
+
+    let opener = app_handle.opener();
+    opener.open_path(file_path, None::<&str>)?;
+    Ok(())
+}
+
 fn read_image_as_base64(file_path: &str) -> Result<String> {
     // 打开文件
     let mut file = File::open(file_path)?;
@@ -199,6 +238,6 @@ fn read_image_as_base64(file_path: &str) -> Result<String> {
     // 读取文件内容到字节向量
     let mut buffer = Vec::new();
     file.read_to_end(&mut buffer)?;
-    let base64_string = encode(&buffer);
+    let base64_string = STANDARD.encode(&buffer);
     Ok(base64_string)
 }

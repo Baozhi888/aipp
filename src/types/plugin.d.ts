@@ -1,10 +1,18 @@
-interface SystemApi {
-}
+interface SystemApi {}
 
 interface AssistantTypeApi {
-    typeRegist(code: number, label: string, plugin: TeaAssistantTypePlugin): void;
+    typeRegist(
+        code: number,
+        label: string,
+        plugin: TeaAssistantTypePlugin,
+    ): void;
     changeFieldLabel(fieldName: string, label: string): void;
-    addField(fieldName: string, label: string, type: string, fieldConfig?: FieldConfig): void;
+    addField(
+        fieldName: string,
+        label: string,
+        type: string,
+        fieldConfig?: FieldConfig,
+    ): void;
     forceFieldValue(fieldName: string, value: string): void;
     addFieldTips(fieldName: string, tips: string): void;
     runLogic(callback: (assistantRunApi: AssistantRunApi) => void): void;
@@ -12,7 +20,7 @@ interface AssistantTypeApi {
 
 interface FieldConfig {
     // default none
-    position?: 'query' | 'body' | 'header' | 'none';
+    position?: "query" | "body" | "header" | "none";
     // default false
     required?: boolean;
     // default false
@@ -21,11 +29,31 @@ interface FieldConfig {
 }
 
 interface AssistantRunApi {
-    askAI(question: string, modelId: string, prompt?: string, conversationId?: string): AskAiResponse;
-    askAssistant(question: string, assistantId: string, conversationId?: string, overrideModelConfig?: Array<[string, string]>, overrideSystemPrompt?: string,
-        onCustomUserMessage?: (question: string, assistantId: string, conversationId?: string) => any,
+    askAI(
+        question: string,
+        modelId: string,
+        prompt?: string,
+        conversationId?: string,
+    ): AskAiResponse;
+    askAssistant(
+        question: string,
+        assistantId: string,
+        conversationId?: string,
+        fileInfoList?: FileInfo[],
+        overrideModelConfig?: Array<[string, string]>,
+        overrideSystemPrompt?: string,
+        onCustomUserMessage?: (
+            question: string,
+            assistantId: string,
+            conversationId?: string,
+        ) => any,
         onCustomUserMessageComing?: (aiResponse: AiResponse) => void,
-        onStreamMessageListener?: (payload: string, aiResponse: AiResponse, responseIsResponsingFunction: (isFinish: boolean) => void) => void): Promise<AiResponse>;
+        onStreamMessageListener?: (
+            payload: string,
+            aiResponse: AiResponse,
+            responseIsResponsingFunction: (isFinish: boolean) => void,
+        ) => void,
+    ): Promise<AiResponse>;
     getUserInput(): string;
     getModelId(): string;
     getAssistantId(): string;

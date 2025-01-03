@@ -1,16 +1,16 @@
-import React, { useRef, useEffect, useState } from "react";
+import React, { useRef, useEffect, useState, useCallback } from "react";
+import "../../styles/InputArea.css";
 import CircleButton from "../CircleButton";
 import Add from "../../assets/add.svg?react";
 import Stop from "../../assets/stop.svg?react";
 import UpArrow from "../../assets/up-arrow.svg?react";
-import Delete from "../../assets/delete.svg?react";
-import Text from "../../assets/text.svg?react";
-import { AttachmentType, FileInfo } from "../../data/Conversation";
-import IconButton from "../IconButton";
+import { FileInfo } from "../../data/Conversation";
 import { invoke } from "@tauri-apps/api/core";
 import { getCaretCoordinates } from "../../utils/caretCoordinates";
+import BangCompletionList from "./BangCompletionList";
+import { useFileList } from '../../hooks/useFileList';
 
-const InputArea: React.FC<{
+interface InputAreaProps {
     inputText: string;
     setInputText: React.Dispatch<React.SetStateAction<string>>;
     fileInfoList: FileInfo[] | null;
@@ -19,7 +19,10 @@ const InputArea: React.FC<{
     handleDeleteFile: (fileId: number) => void;
     handleSend: () => void;
     aiIsResponsing: boolean;
-}> = React.memo(
+    placement?: "top" | "bottom";
+}
+
+const InputArea: React.FC<InputAreaProps> = React.memo(
     ({
         inputText,
         setInputText,
@@ -29,7 +32,10 @@ const InputArea: React.FC<{
         handleDeleteFile,
         handleSend,
         aiIsResponsing,
+        placement = "bottom",
     }) => {
+        // 图片区域的高度
+        const IMAGE_AREA_HEIGHT = 80;
         const textareaRef = useRef<HTMLTextAreaElement>(null);
         const [initialHeight, setInitialHeight] = useState<number | null>(null);
         const [bangListVisible, setBangListVisible] = useState<boolean>(false);
@@ -38,15 +44,21 @@ const InputArea: React.FC<{
         const [cursorPosition, setCursorPosition] = useState<{
             bottom: number;
             left: number;
-        }>({ bottom: 0, left: 0 });
+            top: number;
+        }>({ bottom: 0, left: 0, top: 0 });
         const [selectedBangIndex, setSelectedBangIndex] = useState<number>(0);
+
+        const handleOpenFile = (fileId: number) => {
+            invoke("open_attachment_with_default_app", { id: fileId });
+        }
+        const { renderFiles } = useFileList(fileInfoList, handleDeleteFile, handleOpenFile);
 
         useEffect(() => {
             if (textareaRef.current && !initialHeight) {
                 setInitialHeight(textareaRef.current.scrollHeight);
             }
             adjustTextareaHeight();
-        }, [inputText, initialHeight]);
+        }, [inputText, initialHeight, fileInfoList]);
 
         useEffect(() => {
             invoke<string[]>("get_bang_list").then((bangList) => {
@@ -62,7 +74,7 @@ const InputArea: React.FC<{
                     const value = textareaRef.current.value;
                     const bangIndex = Math.max(
                         value.lastIndexOf("!", cursorPosition - 1),
-                        value.lastIndexOf("！", cursorPosition - 1)
+                        value.lastIndexOf("！", cursorPosition - 1),
                     );
 
                     if (bangIndex !== -1 && bangIndex < cursorPosition) {
@@ -85,13 +97,44 @@ const InputArea: React.FC<{
                             );
                             const rect =
                                 textareaRef.current.getBoundingClientRect();
+                            const style = window.getComputedStyle(
+                                textareaRef.current,
+                            );
+                            const paddingTop = parseFloat(style.paddingTop);
+                            const paddingBottom = parseFloat(
+                                style.paddingBottom,
+                            );
+                            const textareaHeight = parseFloat(style.height);
+
                             const inputAreaRect = document
                                 .querySelector(".input-area")!
                                 .getBoundingClientRect();
                             const left =
-                                rect.left - inputAreaRect.left + cursorCoords.cursorLeft;
-                            const bottom = inputAreaRect.top - rect.top - cursorCoords.cursorTop + 10 + (textareaRef.current.scrollHeight - textareaRef.current.clientHeight);
-                            setCursorPosition({ bottom, left });
+                                rect.left -
+                                inputAreaRect.left +
+                                cursorCoords.cursorLeft;
+
+                            if (placement === "top") {
+                                const top =
+                                    rect.top +
+                                    rect.height +
+                                    Math.min(
+                                        textareaHeight,
+                                        cursorCoords.cursorTop,
+                                    ) -
+                                    paddingTop -
+                                    paddingBottom;
+                                setCursorPosition({ bottom: 0, left, top });
+                            } else {
+                                const bottom =
+                                    inputAreaRect.top -
+                                    rect.top -
+                                    cursorCoords.cursorTop +
+                                    10 +
+                                    (textareaRef.current.scrollHeight -
+                                        textareaRef.current.clientHeight);
+                                setCursorPosition({ bottom, left, top: 0 });
+                            }
                         } else {
                             setBangListVisible(false);
                         }
@@ -108,7 +151,7 @@ const InputArea: React.FC<{
                     handleSelectionChange,
                 );
             };
-        }, [originalBangList]);
+        }, [originalBangList, placement]);
 
         const adjustTextareaHeight = () => {
             const textarea = textareaRef.current;
@@ -120,7 +163,8 @@ const InputArea: React.FC<{
                     maxHeight,
                 );
                 textarea.style.height = `${newHeight}px`;
-                textarea.parentElement!.style.height = `${newHeight}px`;
+                console.log("fileInfoList", fileInfoList, fileInfoList?.length != 0);
+                textarea.parentElement!.style.height = `${newHeight + ((fileInfoList?.length && IMAGE_AREA_HEIGHT) || 0)}px`;
             }
         };
 
@@ -134,7 +178,7 @@ const InputArea: React.FC<{
             // Check for bang input
             const bangIndex = Math.max(
                 newValue.lastIndexOf("!", cursorPosition - 1),
-                newValue.lastIndexOf("！", cursorPosition - 1)
+                newValue.lastIndexOf("！", cursorPosition - 1),
             );
 
             if (bangIndex !== -1 && bangIndex < cursorPosition) {
@@ -158,15 +202,37 @@ const InputArea: React.FC<{
                         cursorPosition,
                     );
                     const rect = textarea.getBoundingClientRect();
+                    const style = window.getComputedStyle(textarea);
+                    const paddingTop = parseFloat(style.paddingTop);
+                    const paddingBottom = parseFloat(style.paddingBottom);
+                    const textareaHeight = parseFloat(style.height);
                     const inputAreaRect = document
                         .querySelector(".input-area")!
                         .getBoundingClientRect();
 
-                    console.log("cursorCoords", cursorCoords, "rect", rect, "inputAreaRect", inputAreaRect);
                     const left =
-                        rect.left - inputAreaRect.left + cursorCoords.cursorLeft;
-                    const bottom = inputAreaRect.top - rect.top - cursorCoords.cursorTop + 10 + (textarea.scrollHeight - textarea.clientHeight);
-                    setCursorPosition({ bottom, left });
+                        rect.left -
+                        inputAreaRect.left +
+                        cursorCoords.cursorLeft;
+
+                    if (placement === "top") {
+                        const top =
+                            rect.top +
+                            rect.height +
+                            Math.min(textareaHeight, cursorCoords.cursorTop) -
+                            paddingTop -
+                            paddingBottom;
+
+                        setCursorPosition({ bottom: 0, left, top });
+                    } else {
+                        const bottom =
+                            inputAreaRect.top -
+                            rect.top -
+                            cursorCoords.cursorTop +
+                            10 +
+                            (textarea.scrollHeight - textarea.clientHeight);
+                        setCursorPosition({ bottom, left, top: 0 });
+                    }
                 } else {
                     setBangListVisible(false);
                 }
@@ -186,14 +252,24 @@ const InputArea: React.FC<{
                     // Select bang
                     e.preventDefault();
                     const selectedBang = bangList[selectedBangIndex];
+                    let complete = selectedBang[1];
                     const textarea = e.currentTarget as HTMLTextAreaElement;
                     const cursorPosition = textarea.selectionStart;
                     const bangIndex = Math.max(
                         textarea.value.lastIndexOf("!", cursorPosition - 1),
-                        textarea.value.lastIndexOf("！", cursorPosition - 1)
+                        textarea.value.lastIndexOf("！", cursorPosition - 1),
                     );
 
                     if (bangIndex !== -1) {
+                        // 找到complete中的|的位置
+                        const cursorIndex = complete.indexOf("|");
+                        // 如果有|，则将光标移动到|的位置，并且移除|
+                        if (cursorIndex !== -1) {
+                            complete =
+                                complete.substring(0, cursorIndex) +
+                                complete.substring(cursorIndex + 1);
+                        }
+
                         const beforeBang = textarea.value.substring(
                             0,
                             bangIndex,
@@ -201,17 +277,16 @@ const InputArea: React.FC<{
                         const afterBang =
                             textarea.value.substring(cursorPosition);
                         setInputText(
-                            beforeBang +
-                            "!" +
-                            selectedBang[0] +
-                            " " +
-                            afterBang,
+                            beforeBang + "!" + complete + " " + afterBang,
                         );
 
                         // 设置光标位置
                         setTimeout(() => {
                             const newPosition =
-                                bangIndex + selectedBang[0].length + 2;
+                                bangIndex +
+                                (cursorIndex === -1
+                                    ? selectedBang[0].length + 2
+                                    : cursorIndex + 1);
                             textarea.setSelectionRange(
                                 newPosition,
                                 newPosition,
@@ -228,24 +303,35 @@ const InputArea: React.FC<{
                 // Select bang
                 e.preventDefault();
                 const selectedBang = bangList[selectedBangIndex];
+                let complete = selectedBang[1];
                 const textarea = e.currentTarget as HTMLTextAreaElement;
                 const cursorPosition = textarea.selectionStart;
                 const bangIndex = Math.max(
                     textarea.value.lastIndexOf("!", cursorPosition - 1),
-                    textarea.value.lastIndexOf("！", cursorPosition - 1)
+                    textarea.value.lastIndexOf("！", cursorPosition - 1),
                 );
 
                 if (bangIndex !== -1) {
+                    // 找到complete中的|的位置
+                    const cursorIndex = complete.indexOf("|");
+                    // 如果有|，则将光标移动到|的位置，并且移除|
+                    if (cursorIndex !== -1) {
+                        complete =
+                            complete.substring(0, cursorIndex) +
+                            complete.substring(cursorIndex + 1);
+                    }
+
                     const beforeBang = textarea.value.substring(0, bangIndex);
                     const afterBang = textarea.value.substring(cursorPosition);
-                    setInputText(
-                        beforeBang + "!" + selectedBang[0] + " " + afterBang,
-                    );
+                    setInputText(beforeBang + "!" + complete + " " + afterBang);
 
                     // 设置光标位置
                     setTimeout(() => {
                         const newPosition =
-                            bangIndex + selectedBang[0].length + 2;
+                            bangIndex +
+                            (cursorIndex === -1
+                                ? selectedBang[0].length + 2
+                                : cursorIndex + 1);
                         textarea.setSelectionRange(newPosition, newPosition);
                     }, 0);
                 }
@@ -291,79 +377,16 @@ const InputArea: React.FC<{
             scrollToSelectedBang();
         }, [selectedBangIndex]);
 
+        const handleImageContainerClick = useCallback(() => {
+            textareaRef.current?.focus();
+        }, [textareaRef]);
+
         return (
-            <div className="input-area">
-                <div className="input-area-img-container">
-                    {fileInfoList?.map((fileInfo) => (
-                        <div
-                            key={fileInfo.name + fileInfo.id}
-                            className={
-                                fileInfo.type === AttachmentType.Image
-                                    ? "input-area-img-wrapper"
-                                    : "input-area-text-wrapper"
-                            }
-                        >
-                            {(() => {
-                                switch (fileInfo.type) {
-                                    case AttachmentType.Image:
-                                        return (
-                                            <img
-                                                src={fileInfo.thumbnail}
-                                                alt="缩略图"
-                                                className="input-area-img"
-                                            />
-                                        );
-                                    case AttachmentType.Text:
-                                        return [
-                                            <Text fill="black" />,
-                                            <span title={fileInfo.name}>
-                                                {fileInfo.name}
-                                            </span>,
-                                        ];
-                                    case AttachmentType.PDF:
-                                        return (
-                                            <span title={fileInfo.name}>
-                                                {fileInfo.name} (PDF)
-                                            </span>
-                                        );
-                                    case AttachmentType.Word:
-                                        return (
-                                            <span title={fileInfo.name}>
-                                                {fileInfo.name} (Word)
-                                            </span>
-                                        );
-                                    case AttachmentType.PowerPoint:
-                                        return (
-                                            <span title={fileInfo.name}>
-                                                {fileInfo.name} (PowerPoint)
-                                            </span>
-                                        );
-                                    case AttachmentType.Excel:
-                                        return (
-                                            <span title={fileInfo.name}>
-                                                {fileInfo.name} (Excel)
-                                            </span>
-                                        );
-                                    default:
-                                        return (
-                                            <span title={fileInfo.name}>
-                                                {fileInfo.name}
-                                            </span>
-                                        );
-                                }
-                            })()}
-                            <IconButton
-                                border
-                                icon={<Delete fill="black" />}
-                                className="input-area-img-delete-button"
-                                onClick={() => {
-                                    handleDeleteFile(fileInfo.id);
-                                }}
-                            />
-                        </div>
-                    ))}
-                </div>
-                <div className="input-area-textarea-container border-2 border-primary">
+            <div className={`input-area ${placement}`}>
+                <div className="input-area-textarea-container">
+                    <div className="input-area-img-container" onClick={handleImageContainerClick}>
+                        {renderFiles()}
+                    </div>
                     <textarea
                         ref={textareaRef}
                         className="input-area-textarea"
@@ -378,10 +401,10 @@ const InputArea: React.FC<{
                 <CircleButton
                     onClick={handleChooseFile}
                     icon={<Add fill="black" />}
-                    className="input-area-add-button"
+                    className={`input-area-add-button ${placement}`}
                 />
                 <CircleButton
-                    size="large"
+                    size={placement === "bottom" ? "large" : "medium"}
                     onClick={handleSend}
                     icon={
                         aiIsResponsing ? (
@@ -391,51 +414,19 @@ const InputArea: React.FC<{
                         )
                     }
                     primary
-                    className="input-area-send-button"
+                    className={`input-area-send-button ${placement}`}
                 />
-                {bangListVisible && (
-                    <div
-                        className="completion-bang-list"
-                        style={{
-                            bottom: cursorPosition.bottom,
-                            left: cursorPosition.left,
-                        }}
-                    >
-                        {bangList.map(([bang, desc], index) => (
-                            <div
-                                className={`completion-bang-container ${index === selectedBangIndex ? "selected" : ""}`}
-                                key={bang}
-                                onClick={() => {
-                                    const textarea = textareaRef.current;
-                                    if (textarea) {
-                                        const cursorPosition = textarea.selectionStart;
-                                        const bangIndex = Math.max(
-                                            textarea.value.lastIndexOf("!", cursorPosition - 1),
-                                            textarea.value.lastIndexOf("！", cursorPosition - 1)
-                                        );
 
-                                        if (bangIndex !== -1) {
-                                            const beforeBang = textarea.value.substring(0, bangIndex);
-                                            const afterBang = textarea.value.substring(cursorPosition);
-                                            setInputText(beforeBang + "!" + bang + " " + afterBang);
-
-                                            // 设置光标位置
-                                            setTimeout(() => {
-                                                const newPosition = bangIndex + bang.length + 2;
-                                                textarea.setSelectionRange(newPosition, newPosition);
-                                            }, 0);
-                                        }
-                                        setBangListVisible(false);
-                                        textarea.focus();
-                                    }
-                                }}
-                            >
-                                <span className="bang-tag">{bang}</span>
-                                <span>{desc}</span>
-                            </div>
-                        ))}
-                    </div>
-                )}
+                <BangCompletionList
+                    bangListVisible={bangListVisible}
+                    placement={placement}
+                    cursorPosition={cursorPosition}
+                    bangList={bangList}
+                    selectedBangIndex={selectedBangIndex}
+                    textareaRef={textareaRef}
+                    setInputText={setInputText}
+                    setBangListVisible={setBangListVisible}
+                />
             </div>
         );
     },

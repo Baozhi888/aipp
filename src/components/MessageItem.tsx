@@ -227,13 +227,17 @@ const MessageItem = React.memo(
                     <div
                         className="message-image"
                         style={{
-                            width: "100%",
+                            width: "300px",
                             display: "flex",
                             flexDirection: "column",
                         }}
                     >
                         {message.attachment_list
                             .filter((a: any) => a.attachment_type === "Image")
+                            .map((attachment: any) => {
+                                console.log(attachment);
+                                return attachment;
+                            })
                             .map((attachment: any) => (
                                 <img
                                     key={attachment.attachment_url}
